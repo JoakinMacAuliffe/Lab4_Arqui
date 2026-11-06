@@ -123,6 +123,9 @@ architecture Structural of lab04_top is
     signal pulso_evento       : STD_LOGIC;
     signal pulso_reset_evento : STD_LOGIC;
 
+    -- Pulso que incrementa el contador: BTNR (EVENTO) o BTNC (START_PAUSE)
+    signal pulso_contar       : STD_LOGIC;
+
     -- Dígitos BCD del temporizador y del contador de eventos
     signal dec_tiempo         : STD_LOGIC_VECTOR(3 downto 0);
     signal uni_tiempo         : STD_LOGIC_VECTOR(3 downto 0);
@@ -204,7 +207,7 @@ begin
             CLK          => CLK,
             RESET        => RESET,
             RESET_EVENTO => pulso_reset_evento,
-            EVENTO       => pulso_evento,
+            EVENTO       => pulso_contar,
             DEC_EVENTO   => dec_evento,
             UNI_EVENTO   => uni_evento
         );
@@ -230,7 +233,10 @@ begin
             SEG => SEG
         );
 
+    -- Cada pulsación de EVENTO o de START_PAUSE cuenta como un evento
+    pulso_contar <= pulso_evento or pulso_start_pause;
+
     -- Salida indicadora de detección de evento
-    LED_EVENTO <= pulso_evento;
+    LED_EVENTO <= pulso_contar;
 
 end Structural;

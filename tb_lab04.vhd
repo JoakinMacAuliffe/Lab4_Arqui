@@ -6,7 +6,8 @@
 --              2. Inicio del temporizador (START_PAUSE -> RUNNING = 1)
 --              3. Decremento y Pausa (el tiempo se mantiene constante en pausa)
 --              4. Reanudación del conteo regresivo
---              5. Incremento de eventos (un solo conteo por pulsación larga)
+--              5. Incremento de eventos (un solo conteo por pulsación larga;
+--                 las pulsaciones de START_PAUSE también cuentan como evento)
 --              6. Reinicio independiente de eventos (RESET_EVENTO -> 00)
 --              7. Transición BCD de 10 a 09 en el temporizador
 --              8. Transición de 01 a 00 y detención automática
@@ -244,10 +245,11 @@ begin
         press_button(EVENTO);
         press_button(EVENTO);
 
-        assert (obs_dec_evento = 0 and obs_uni_evento = 3)
-            report "Fallo Caso 5: El contador de eventos debe mostrar 03 tras 3 pulsaciones."
+        -- 2 pulsaciones de START_PAUSE (inicio y pausa) + 3 de EVENTO = 05
+        assert (obs_dec_evento = 0 and obs_uni_evento = 5)
+            report "Fallo Caso 5: El contador de eventos debe mostrar 05 (2 START_PAUSE + 3 EVENTO)."
             severity error;
-        report "Caso 5 OK: Incremento de eventos verificado (EE=03)." severity note;
+        report "Caso 5 OK: Incremento de eventos verificado (EE=05)." severity note;
 
         --------------------------------------------------------------------------
         -- CASO 6: Reinicio independiente de eventos
@@ -331,15 +333,16 @@ begin
         assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 5 and RUNNING = '0' and ALARMA = '0')
             report "Fallo Caso 11: RESET_TIEMPO debe restaurar el tiempo a 25 y apagar ALARMA."
             severity error;
-        assert (obs_dec_evento = 0 and obs_uni_evento = 7)
-            report "Fallo Caso 11: RESET_TIEMPO no debe afectar el contador de eventos (07)."
+        -- 7 de EVENTO + 1 START_PAUSE (reanudación) = 08
+        assert (obs_dec_evento = 0 and obs_uni_evento = 8)
+            report "Fallo Caso 11: RESET_TIEMPO no debe afectar el contador de eventos (08)."
             severity error;
-        report "Caso 11 OK: Reinicio de tiempo verificado (TT=25, ALARMA=0, EE=07)." severity note;
+        report "Caso 11 OK: Reinicio de tiempo verificado (TT=25, ALARMA=0, EE=08)." severity note;
 
         --------------------------------------------------------------------------
         -- CASO 10: Saturación del contador de eventos en 99
         --------------------------------------------------------------------------
-        -- Actualmente EE=07; enviamos 92 pulsos para llegar a 99, más 3 pulsos extra
+        -- Actualmente EE=08; enviamos 91 pulsos para llegar a 99, más 4 pulsos extra
         for i in 1 to 95 loop
             press_button(EVENTO);
         end loop;
