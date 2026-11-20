@@ -1,0 +1,1895 @@
+\documentclass[letterpaper,12pt]{article}
+\usepackage[paperheight=27.94cm,paperwidth=21.59cm,bindingoffset=0in,left=3cm,right=2.0cm,top=3.5cm,bottom=2.5cm,headheight=15pt,headsep=1.0\baselineskip]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{cite}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{automata,positioning,arrows.meta,babel} % la librería babel evita que babel-spanish rompa "->" y ">=" en TikZ
+
+
+% Configuración del formato para el código VHDL
+\lstset{
+    language=VHDL,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=10pt,
+    backgroundcolor=\color{black!5},
+    frame=single,
+    rulecolor=\color{black!30},
+    breaklines=true,
+    breakatwhitespace=false,
+    showstringspaces=false,
+    captionpos=b,
+    inputencoding=utf8,
+    extendedchars=true,
+    literate=
+        {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+        {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1
+        {Ú}{{\'U}}1 {Ñ}{{\~N}}1 {¡}{{\textexclamdown}}1 {¿}{{\textquestiondown}}1
+        {º}{{\textordmasculine}}1 {ª}{{\textordfeminine}}1
+}
+
+% Inserta una imagen si el archivo existe; si no, muestra un recuadro indicando
+% qué falta, de modo que el informe compile siempre.
+\newcommand{\imagenopcional}[3]{% #1 = opciones, #2 = archivo, #3 = descripción del faltante
+    \IfFileExists{#2}{\includegraphics[#1]{#2}}{%
+        \fbox{\parbox{0.85\linewidth}{\centering\vspace{1.5cm}\textbf{[Insertar imagen: }\texttt{\detokenize{#2}}\textbf{]}\\[0.2cm]\small #3\vspace{1.5cm}}}%
+    }%
+}
+
+\renewcommand{\tablename}{Tabla}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Laboratorio 4: Temporizador regresivo y contador de eventos en FPGA}
+
+\begin{document}
+
+% ==============================
+% 1. CARÁTULA
+% ==============================
+\begin{titlepage}
+    \centering
+    \imagenopcional{width=0.55\textwidth}{Logo_Universidad_Diego_Portales.png}{Logo institucional.}\\[1.2 cm]
+
+    \textsc{\large Facultad de Ingeniería y Ciencias}\\[0.2 cm]
+    \textsc{\large Escuela de Informática y Telecomunicaciones}\\[1.5 cm]
+
+    \textsc{\Large Arquitectura y Organización de Computadores}\\[0.5 cm]
+
+    \rule{\linewidth}{0.5 mm} \\[0.4 cm]
+    {\huge \bfseries Laboratorio 4:\\[0.3cm] \Large Temporizador regresivo y contador de eventos en FPGA}\\
+    \rule{\linewidth}{0.5 mm} \\[2.0 cm]
+
+    \large \emph{Integrantes:}\\[0.3 cm]
+    {\Large Benjamín Oyarzún}\\[0.2cm]
+    {\Large Lucas Herrada}\\[0.2cm]
+    {\Large Joakin Mac-Auliffe}
+
+    \vfill
+    {\large Diciembre de 2026}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ==============================
+% 2. INTRODUCCIÓN
+% ==============================
+\section{Introducción}
+El presente informe documenta el diseño, la simulación y la implementación en una FPGA Nexys 4 DDR (Artix-7 XC7A100T) de un sistema digital que combina un temporizador regresivo y un contador de eventos, ambos representados en BCD y visualizados en cuatro displays de siete segmentos con el formato \texttt{TT EE}. El temporizador permite iniciar, pausar y reiniciar la cuenta, y activa una alarma al llegar a cero; el contador de eventos se incrementa con cada pulsación y puede reiniciarse de forma independiente.
+
+El proyecto aborda problemas típicos del diseño digital sobre hardware real: la obtención de bases de tiempo (un segundo y un refresco de display) a partir de un único reloj de 100 MHz mediante señales de habilitación, el tratamiento de pulsadores mecánicos (sincronización y detección de flanco), la aritmética BCD y la multiplexación temporal de displays. Como actividad adicional se implementó una alarma intermitente.
+
+% ==============================
+% 3. OBJETIVOS
+% ==============================
+\section{Objetivos}
+El objetivo principal es diseñar, simular e implementar en una FPGA un sistema compuesto por un temporizador regresivo, un contador de eventos, controles de inicio, pausa y reinicio, visualización en cuatro displays de siete segmentos y una señal de alarma al finalizar el tiempo.
+
+Los objetivos específicos son:
+\begin{itemize}
+    \item Generar una habilitación de un ciclo cada segundo (\texttt{TICK\_1S}) y una de refresco de displays (\texttt{TICK\_DISPLAY}) manteniendo un único dominio de reloj.
+    \item Implementar un temporizador BCD de 00 a 99 que decremente cada segundo, se detenga en 00 y active la alarma.
+    \item Implementar un contador de eventos BCD de 00 a 99 con saturación y reinicio independiente.
+    \item Acondicionar los pulsadores mediante sincronización, detección de flanco y generación de un pulso de un ciclo.
+    \item Multiplexar cuatro displays de siete segmentos (activos en bajo) manteniendo apagados los cuatro restantes.
+    \item Verificar el diseño con un banco de pruebas autoverificable basado en sentencias \texttt{assert}.
+    \item Implementar una extensión: alarma intermitente.
+\end{itemize}
+
+% ==============================
+% 4. FUNDAMENTOS TEÓRICOS
+% ==============================
+\section{Fundamentos teóricos}
+\begin{itemize}
+    \item \textbf{Señal de habilitación (tick):} en lugar de derivar un reloj más lento (lo que crearía un segundo dominio de reloj y problemas de sincronización), se divide la frecuencia con un contador que genera un pulso de un ciclo de reloj cada $N$ ciclos. Los registros siguen operando con el reloj principal y solo avanzan cuando el tick vale `1'. Para obtener un segundo con el reloj de 100 MHz:
+    \[
+        N_{1\,\mathrm{s}} = f_{CLK}\cdot T = 100\times10^{6}\ \mathrm{Hz}\cdot 1\ \mathrm{s} = 100\,000\,000\ \text{ciclos}.
+    \]
+    \item \textbf{Contador BCD:} cada dígito decimal se almacena en 4 bits con valores 0 a 9. A diferencia de un contador binario, los códigos 1010 a 1111 no se utilizan, por lo que el paso de 9 a 0 (o de 0 a 9 al decrementar) requiere lógica explícita de acarreo y préstamo entre unidades y decenas.
+    \item \textbf{Sincronización y metaestabilidad:} un pulsador es asíncrono respecto del reloj. Pasarlo por dos flip-flops en cascada reduce la probabilidad de que un nivel metaestable llegue a la lógica interna.
+    \item \textbf{Detección de flanco:} comparando el valor actual con el anterior (\texttt{actual and not anterior}) se produce un pulso de exactamente un ciclo por cada pulsación, sin importar cuánto tiempo se mantenga presionado el botón.
+    \item \textbf{Rebote mecánico:} al presionar o soltar un pulsador el contacto oscila durante unos milisegundos, generando múltiples flancos espurios.
+    \item \textbf{Multiplexación de displays:} los cuatro dígitos comparten las líneas de segmentos; se activa un solo ánodo a la vez y a alta frecuencia, de modo que por persistencia visual todos parecen encendidos. Los displays de la Nexys 4 DDR son de ánodo común, por lo que tanto segmentos como ánodos son activos en bajo.
+\end{itemize}
+
+% ==============================
+% 5. DESCRIPCIÓN FUNCIONAL
+% ==============================
+\section{Descripción funcional}
+El sistema muestra cuatro dígitos con el formato \texttt{TT EE}, donde \texttt{TT} es el tiempo restante (00 a 99) y \texttt{EE} es el número de eventos registrados (00 a 99). Por ejemplo, \texttt{25 07} representa 25 segundos restantes y 7 eventos.
+
+\subsection{Entradas y salidas}
+\begin{table}[H]
+\centering
+\caption{Entradas y salidas del módulo \texttt{lab04\_top} y su asignación en la Nexys 4 DDR.}
+\label{tab:io}
+\small
+\begin{tabularx}{\textwidth}{|l|l|c|X|}
+\hline
+\textbf{Señal} & \textbf{Dir.} & \textbf{Elemento} & \textbf{Descripción} \\ \hline
+\texttt{CLK}              & Entrada & CLK100MHZ (E3) & Reloj principal de 100 MHz. \\ \hline
+\texttt{RESET}            & Entrada & BTND (P18)     & Reinicio general. \\ \hline
+\texttt{START\_PAUSE}     & Entrada & BTNC (N17)     & Inicia o pausa el temporizador. \\ \hline
+\texttt{RESET\_TIEMPO}    & Entrada & BTNU (M18)     & Reinicia el temporizador al valor inicial. \\ \hline
+\texttt{EVENTO}           & Entrada & BTNR (M17)     & Incrementa el contador de eventos. \\ \hline
+\texttt{RESET\_EVENTO}    & Entrada & BTNL (P17)     & Reinicia el contador de eventos. \\ \hline
+\texttt{SEG(6 downto 0)}  & Salida  & CA--CG         & Segmentos del display (activos en bajo). \\ \hline
+\texttt{AN(7 downto 0)}   & Salida  & AN0--AN7       & Selección de display (activos en bajo). \\ \hline
+\texttt{RUNNING}          & Salida  & LED0 (H17)     & Temporizador activo. \\ \hline
+\texttt{ALARMA}           & Salida  & LED1 (K15)     & Tiempo agotado (parpadea a 2 Hz). \\ \hline
+\texttt{LED\_EVENTO}      & Salida  & LED2 (J13)     & Indica la detección de un evento. \\ \hline
+\end{tabularx}
+\end{table}
+
+\subsection{Temporizador}
+Al energizar o reiniciar, el temporizador carga el valor inicial (25 por defecto, configurable mediante los genéricos \texttt{INIT\_DEC} e \texttt{INIT\_UNI}) y queda detenido. Cada pulsación de \texttt{START\_PAUSE} alterna el estado \emph{detenido} $\leftrightarrow$ \emph{ejecutándose}, reflejado en \texttt{RUNNING}. Mientras está en ejecución, descuenta una unidad con cada \texttt{TICK\_1S}. Cuando las unidades son cero se decrementa la decena y las unidades se cargan con nueve (por ejemplo, $10\rightarrow09$). Al pasar de 01 a 00 el temporizador se detiene, \texttt{RUNNING} vuelve a `0' y se activa la alarma, sin continuar disminuyendo. Si el tiempo ya es 00, una pulsación de \texttt{START\_PAUSE} no reanuda la cuenta.
+
+\subsection{Contador de eventos}
+Inicia en 00 y se incrementa en una unidad con cada pulso válido; las unidades pasan de 9 a 0 con acarreo a las decenas. Al llegar a 99 se mantiene el valor (saturación). Puede reiniciarse de forma independiente con \texttt{RESET\_EVENTO} sin alterar el temporizador.
+
+\textbf{Decisión de diseño:} en el módulo superior, el pulso que incrementa el contador es \texttt{pulso\_contar = pulso\_evento or pulso\_start\_pause}; es decir, además de \texttt{BTNR}, cada pulsación de \texttt{BTNC} (inicio/pausa) también se contabiliza como evento, y \texttt{LED\_EVENTO} refleja ese mismo pulso. Este comportamiento se aprecia en la simulación (Figura~\ref{fig:sim_inicio}) y en los valores esperados del testbench (Tabla~\ref{tab:casos}).
+
+\subsection{Visualización}
+\begin{table}[H]
+\centering
+\caption{Asignación de información a cada display (formato \texttt{TT EE}).}
+\label{tab:displays}
+\begin{tabular}{|c|c|l|c|}
+\hline
+\textbf{Display} & \textbf{Ánodo activo} & \textbf{Información} & \textbf{Código \texttt{AN}} \\ \hline
+0 & \texttt{AN(0)} & Unidades de eventos & \texttt{11111110} \\ \hline
+1 & \texttt{AN(1)} & Decenas de eventos  & \texttt{11111101} \\ \hline
+2 & \texttt{AN(2)} & Unidades de tiempo  & \texttt{11111011} \\ \hline
+3 & \texttt{AN(3)} & Decenas de tiempo   & \texttt{11110111} \\ \hline
+4 a 7 & \texttt{AN(7:4)} & Apagados & \texttt{1111xxxx} \\ \hline
+\end{tabular}
+\end{table}
+
+\subsection{Algoritmos}
+\paragraph{Temporizador regresivo.} En cada flanco de reloj, el temporizador evalúa en este orden de prioridad:
+\begin{enumerate}
+    \item Si \texttt{RESET} o \texttt{RESET\_TIEMPO}: cargar el valor inicial, \texttt{RUNNING}$=0$, \texttt{ALARMA}$=0$.
+    \item Si hay pulso de \texttt{START\_PAUSE}: si el tiempo no es 00, invertir \texttt{RUNNING}; si es 00, mantener \texttt{RUNNING}$=0$.
+    \item Si \texttt{RUNNING}$=1$ y \texttt{TICK\_1S}$=1$:
+    \begin{itemize}
+        \item si el valor es 01: cargar 00, \texttt{RUNNING}$\leftarrow0$, \texttt{ALARMA}$\leftarrow1$;
+        \item si las unidades son 0: decenas $\leftarrow$ decenas $-1$ y unidades $\leftarrow9$;
+        \item en otro caso: unidades $\leftarrow$ unidades $-1$.
+    \end{itemize}
+\end{enumerate}
+
+\paragraph{Contador de eventos.} En cada flanco de reloj: si hay \texttt{RESET} o \texttt{RESET\_EVENTO}, se carga 00; en caso contrario, si hay pulso de evento: si el valor es 99 se mantiene; si las unidades son 9 se ponen en 0 y se incrementa la decena; en otro caso se incrementa la unidad.
+
+\subsection{Actividad adicional: alarma intermitente}
+Como extensión se implementó el módulo \texttt{alarma\_intermitente}, que transforma la alarma fija del temporizador (\texttt{ALARMA\_IN}) en una señal que parpadea (\texttt{ALARMA\_OUT}) mientras el tiempo está agotado.
+\begin{itemize}
+    \item Mientras \texttt{ALARMA\_IN}$=0$ (o hay reset), el contador se mantiene en 0 y la fase interna queda en `1', de modo que el parpadeo siempre comienza con el LED encendido.
+    \item Con \texttt{ALARMA\_IN}$=1$, un contador de \texttt{MAX\_COUNT\_BLINK} ciclos invierte la fase al terminar cada cuenta.
+    \item La salida es \texttt{ALARMA\_OUT <= ALARMA\_IN and blink}, por lo que nunca se enciende sin alarma.
+\end{itemize}
+Con 100 MHz y \texttt{MAX\_COUNT\_BLINK}$=25\,000\,000$, cada fase dura 0,25~s y el LED parpadea a $f = 1/(2\cdot0{,}25\ \mathrm{s}) = 2$~Hz. En simulación se usan 5 ciclos por fase y el testbench cuenta los flancos de subida de \texttt{ALARMA} para verificar el parpadeo y que cesa tras \texttt{RESET\_TIEMPO}.
+
+% ==============================
+% 6. DIAGRAMA DE BLOQUES
+% ==============================
+\section{Diagrama de bloques}
+El diseño se divide en módulos independientes interconectados en \texttt{lab04\_top}. El reloj de 100 MHz alimenta a \texttt{generador\_ticks}, que produce \texttt{TICK\_1S} (hacia el temporizador) y \texttt{TICK\_DISPLAY} (hacia el multiplexor). Los cuatro pulsadores de control pasan cada uno por una instancia de \texttt{detector\_flanco}. \texttt{pulso\_start\_pause} gobierna el temporizador y, junto con \texttt{pulso\_evento} a través de una compuerta OR (\texttt{pulso\_contar}), habilita el \texttt{contador\_eventos}; \texttt{pulso\_reset\_tiempo} y \texttt{pulso\_reset\_evento} reinician cada contador por separado. Los cuatro dígitos BCD llegan a \texttt{mux\_display}, que selecciona un dígito y su ánodo en cada \texttt{TICK\_DISPLAY}; el dígito seleccionado se convierte a segmentos en \texttt{bcd7seg}. La alarma fija del temporizador se transforma en una señal intermitente en \texttt{alarma\_intermitente}, que alimenta \texttt{LED1}.
+
+La Figura~\ref{fig:diagrama_bloques} corresponde al esquema generado por Vivado tras la elaboración del diseño (\emph{Open Elaborated Design}), y refleja exactamente esta interconexión.
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{4.png}{Diagrama de bloques de lab04\_top (esquema elaborado).}
+    \caption{Diagrama de bloques del sistema: \texttt{lab04\_top} con 11 celdas (esquema elaborado en Vivado).}
+    \label{fig:diagrama_bloques}
+\end{figure}
+
+\subsection{Módulos del proyecto}
+\begin{table}[H]
+\centering
+\caption{Módulos VHDL del proyecto.}
+\label{tab:modulos}
+\small
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Archivo} & \textbf{Función} \\ \hline
+\texttt{generador\_ticks.vhd}      & Divisores con genéricos (\texttt{MAX\_COUNT\_1S}, \texttt{MAX\_COUNT\_DISP}); generan \texttt{TICK\_1S} y \texttt{TICK\_DISPLAY} de un ciclo. \\ \hline
+\texttt{detector\_flanco.vhd}      & Sincronizador de doble flip-flop y detector de flanco de subida; entrega un pulso de un ciclo. \\ \hline
+\texttt{temporizador\_bcd.vhd}     & Contador regresivo BCD con inicio/pausa, reinicio, detención en 00 y alarma. \\ \hline
+\texttt{contador\_eventos.vhd}     & Contador ascendente BCD 00--99 con saturación y reinicio independiente. \\ \hline
+\texttt{bcd7seg.vhd}               & Decodificador BCD a siete segmentos activo en bajo. \\ \hline
+\texttt{mux\_display.vhd}          & Selector cíclico de dígito y ánodo para cuatro displays. \\ \hline
+\texttt{alarma\_intermitente.vhd}  & Actividad adicional: convierte la alarma fija en parpadeo a 2 Hz. \\ \hline
+\texttt{lab04\_top.vhd}            & Módulo superior que integra todos los bloques. \\ \hline
+\texttt{tb\_lab04.vhd}             & Banco de pruebas con \texttt{assert}. \\ \hline
+\texttt{lab04.xdc}                 & Restricciones de pines y reloj para la Nexys 4 DDR. \\ \hline
+\end{tabularx}
+\end{table}
+
+% ==============================
+% 7. DIAGRAMA DE ESTADOS
+% ==============================
+\section{Diagrama de estados}
+El sistema no requiere una máquina de estados explícita en VHDL; sin embargo, el control del temporizador puede describirse como una FSM de tipo Moore con tres estados, implementada de forma implícita por las banderas \texttt{running\_reg} y \texttt{alarma\_reg} de \texttt{temporizador\_bcd}:
+\begin{itemize}
+    \item \texttt{DETENIDO}: \texttt{RUNNING}$=0$, \texttt{ALARMA}$=0$. Estado tras el reset o en pausa; el tiempo se mantiene.
+    \item \texttt{EJECUTANDO}: \texttt{RUNNING}$=1$, \texttt{ALARMA}$=0$. El tiempo decrece con cada \texttt{TICK\_1S}.
+    \item \texttt{FINALIZADO}: \texttt{RUNNING}$=0$, \texttt{ALARMA}$=1$. El tiempo llegó a 00 y la alarma está activa; solo un reinicio permite salir.
+\end{itemize}
+Si coinciden \texttt{START\_PAUSE} y \texttt{TICK\_1S}, tiene prioridad \texttt{START\_PAUSE} (en el código, el conteo está en la rama \texttt{elsif}). En el diagrama, $t$ denota el valor $TT$ del temporizador.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[->,>=Stealth,auto,semithick,
+        state/.style={circle,draw,minimum size=2.5cm,align=center,font=\small,inner sep=1pt}]
+        \node[state] (D) at (0,0) {\texttt{DETENIDO}\\[-1pt]\scriptsize RUNNING=0\\[-2pt]\scriptsize ALARMA=0};
+        \node[state] (E) at (5.4,0) {\texttt{EJECUTANDO}\\[-1pt]\scriptsize RUNNING=1\\[-2pt]\scriptsize ALARMA=0};
+        \node[state] (F) at (10.8,0) {\texttt{FINALIZADO}\\[-1pt]\scriptsize RUNNING=0\\[-2pt]\scriptsize ALARMA=1};
+        \path
+            (D) edge[bend left=25] node[above,font=\scriptsize,align=center] {START\_PAUSE\\($t\neq00$)} (E)
+            (E) edge[bend left=25] node[below,font=\scriptsize] {START\_PAUSE} (D)
+            (E) edge node[above,font=\scriptsize,align=center] {TICK\_1S\\y $t=01$} (F)
+            (E) edge[loop above,looseness=6] node[font=\scriptsize,align=center] {TICK\_1S y $t>01$\\(decrementa)} (E)
+            (F) edge[loop above,looseness=6] node[font=\scriptsize] {START\_PAUSE} (F)
+            (F) edge[bend left=35] node[above,font=\scriptsize,align=center] {RESET o\\RESET\_TIEMPO} (D);
+        \node[font=\scriptsize,align=center] at (5.4,-2.6) {Desde cualquier estado: \texttt{RESET} o \texttt{RESET\_TIEMPO} $\rightarrow$ \texttt{DETENIDO} (carga el valor inicial y apaga la alarma).};
+    \end{tikzpicture}
+    \caption{Diagrama de estados del control del temporizador.}
+    \label{fig:diagrama_estados}
+\end{figure}
+
+% ==============================
+% 8. TABLA DE TRANSICIÓN
+% ==============================
+\section{Tabla de transición}
+\begin{table}[H]
+\centering
+\caption{Tabla de transiciones y salidas del control del temporizador.}
+\label{tab:fsm_transiciones}
+\small
+\begin{tabularx}{\textwidth}{|l|X|l|c|c|}
+\hline
+\textbf{Estado actual} & \textbf{Condición} & \textbf{Estado siguiente} & \texttt{RUNNING} & \texttt{ALARMA} \\ \hline
+\texttt{DETENIDO}   & \texttt{START\_PAUSE}$=1$ y $t\neq00$ & \texttt{EJECUTANDO} & 0 & 0 \\ \hline
+\texttt{DETENIDO}   & en otro caso                           & \texttt{DETENIDO}   & 0 & 0 \\ \hline
+\texttt{EJECUTANDO} & \texttt{START\_PAUSE}$=1$              & \texttt{DETENIDO}   & 1 & 0 \\ \hline
+\texttt{EJECUTANDO} & \texttt{TICK\_1S}$=1$ y $t>01$         & \texttt{EJECUTANDO} (decrementa $t$) & 1 & 0 \\ \hline
+\texttt{EJECUTANDO} & \texttt{TICK\_1S}$=1$ y $t=01$         & \texttt{FINALIZADO} ($t\leftarrow00$) & 1 & 0 \\ \hline
+\texttt{EJECUTANDO} & en otro caso                           & \texttt{EJECUTANDO} & 1 & 0 \\ \hline
+\texttt{FINALIZADO} & \texttt{START\_PAUSE}$=1$ o sin eventos & \texttt{FINALIZADO} & 0 & 1 \\ \hline
+Cualquiera          & \texttt{RESET}$=1$ o \texttt{RESET\_TIEMPO}$=1$ & \texttt{DETENIDO} ($t\leftarrow$ inicial) & 0 & 0 \\ \hline
+\end{tabularx}
+\end{table}
+Las salidas corresponden al estado actual (modelo de Moore). Para el contador de eventos no se define una FSM, pues es un contador con saturación cuyo siguiente valor depende solo del valor actual y del pulso de entrada.
+
+% ==============================
+% 9. CÓDIGO VHDL
+% ==============================
+\section{Código VHDL}
+A continuación se describen los módulos; los listados completos se encuentran en los Anexos.
+
+\begin{itemize}
+    \item \textbf{\texttt{generador\_ticks}:} dos contadores independientes con los genéricos \texttt{MAX\_COUNT\_1S} (100\,000\,000 por defecto) y \texttt{MAX\_COUNT\_DISP} (100\,000 por defecto, equivalente a 1 ms). Cada contador, al alcanzar su máximo, vuelve a cero y pone su salida en `1' durante un único ciclo. Con un cambio de dígito cada 1~ms, cada display se refresca a $1000/4 = 250$~Hz, suficiente para evitar parpadeo visible. Los genéricos permiten reducir los divisores en simulación.
+    \item \textbf{\texttt{detector\_flanco}:} dos flip-flops de sincronización (\texttt{sync\_ff1}, \texttt{evento\_actual}) y un tercero que guarda el valor anterior; la salida es \texttt{PULSO <= evento\_actual and not evento\_anterior}.
+    \item \textbf{\texttt{temporizador\_bcd}:} registros de decenas y unidades (\texttt{unsigned(3 downto 0)}), bandera \texttt{running\_reg} y bandera \texttt{alarma\_reg} que implementan el algoritmo descrito en la sección de descripción funcional.
+    \item \textbf{\texttt{contador\_eventos}:} registros BCD con saturación en 99.
+    \item \textbf{\texttt{bcd7seg}:} asignación concurrente \texttt{with ... select} con los patrones activos en bajo; los valores fuera de 0--9 apagan el display (\texttt{"1111111"}).
+    \item \textbf{\texttt{mux\_display}:} contador de 2 bits que avanza con \texttt{TICK\_DISPLAY} y selecciona ánodo y dígito mediante un \texttt{case}; \texttt{AN(7 downto 4)} permanece en `1'.
+    \item \textbf{\texttt{alarma\_intermitente}:} módulo de la actividad adicional.
+    \item \textbf{\texttt{lab04\_top}:} instancia y conecta todos los módulos; los genéricos se propagan para poder reducirlos desde el testbench.
+\end{itemize}
+
+% ==============================
+% 10. TESTBENCH
+% ==============================
+\section{Testbench}
+El archivo \texttt{tb\_lab04.vhd} instancia \texttt{lab04\_top} con divisores reducidos: 20 ciclos por ``segundo'' (\texttt{SIM\_COUNT\_1S}), 2 ciclos por cambio de display (\texttt{SIM\_COUNT\_DISP}) y 5 ciclos por fase de parpadeo (\texttt{SIM\_COUNT\_BLINK}), con un reloj de 100 MHz (10 ns), evitando simular 100 millones de ciclos por segundo. El banco de pruebas:
+\begin{itemize}
+    \item genera el reloj y aplica el reset;
+    \item incluye el procedimiento \texttt{press\_button}, que mantiene el botón en `1' durante 4 ciclos para comprobar que solo se genera un pulso de un ciclo;
+    \item reconstruye los cuatro dígitos mostrados a partir de \texttt{AN} y \texttt{SEG} (monitor de displays con la función inversa \texttt{seg7\_to\_int}), lo que valida simultáneamente el multiplexor y el decodificador;
+    \item verifica que \texttt{AN(7 downto 4)} permanezca siempre en \texttt{"1111"};
+    \item cuenta los flancos de subida de \texttt{ALARMA} para comprobar que parpadea mientras $TT=00$ y que deja de hacerlo tras \texttt{RESET\_TIEMPO};
+    \item emplea sentencias \texttt{assert} con \texttt{severity error} en cada caso y emite un \texttt{report} al aprobar cada uno.
+\end{itemize}
+El código completo se encuentra en los Anexos.
+
+\subsection{Casos de prueba}
+\begin{table}[H]
+\centering
+\caption{Casos de prueba implementados en \texttt{tb\_lab04.vhd} (orden de ejecución: 1, 2, 3, 5, 6, 4, 7, 8--9, 11, 10).}
+\label{tab:casos}
+\small
+\begin{tabularx}{\textwidth}{|c|l|X|}
+\hline
+\textbf{Caso} & \textbf{Acción} & \textbf{Resultado verificado} \\ \hline
+1  & Reset general & $TT=25$, $EE=00$, \texttt{RUNNING}$=0$, \texttt{ALARMA}$=0$. \\ \hline
+2  & Inicio & \texttt{RUNNING}$=1$ y el tiempo decrece $25\rightarrow24\rightarrow23$. \\ \hline
+3  & Pausa & \texttt{RUNNING}$=0$ y el tiempo se mantiene en 23 durante 3 ``segundos''. \\ \hline
+4  & Reanudación & \texttt{RUNNING}$=1$ y el conteo continúa $23\rightarrow22$. \\ \hline
+5  & Evento (pulsación larga) & Cada pulsación de 4 ciclos suma una sola unidad; resultado 05 (2 \texttt{START\_PAUSE} + 3 \texttt{EVENTO}). \\ \hline
+6  & Reset de evento & $EE=00$ sin alterar el tiempo (23). \\ \hline
+7  & Transición 10 a 09 & Cambio BCD correcto $10\rightarrow09$. \\ \hline
+8  & Transición 01 a 00 & El temporizador llega a 00 y \texttt{RUNNING}$=0$; permanece en 00. \\ \hline
+9  & Tiempo en 00 & \texttt{ALARMA} se activa y parpadea (al menos 3 flancos de subida en 3 ``segundos''). \\ \hline
+10 & Evento en 99 & Con 95 pulsaciones adicionales el contador satura y mantiene 99. \\ \hline
+11 & Reset de tiempo & Recupera 25, \texttt{RUNNING}$=0$, \texttt{ALARMA}$=0$ (sin parpadeo posterior) y $EE=08$ intacto. \\ \hline
+\end{tabularx}
+\end{table}
+
+% ==============================
+% 11. SIMULACIÓN EN VIVADO
+% ==============================
+\section{Simulación en Vivado}
+La simulación (comportamental, Vivado 2023.1) se ejecutó sobre \texttt{tb\_lab04}. En la ventana de formas de onda se observan \texttt{CLK}, \texttt{RESET}, \texttt{START\_PAUSE}, \texttt{RESET\_TIEMPO}, \texttt{EVENTO}, \texttt{RESET\_EVENTO}, \texttt{SEG}, \texttt{AN}, \texttt{ALARMA}, \texttt{RUNNING}, \texttt{LED\_EVENTO}, \texttt{tick\_1s}, \texttt{tick\_display}, las decenas y unidades de tiempo y de eventos, y \texttt{alarma\_int}.
+
+La Figura~\ref{fig:sim_vivado} muestra la simulación completa en el entorno de Vivado, con la jerarquía de instancias (\texttt{u\_generador\_ticks}, los cuatro \texttt{detector\_flanco}, \texttt{u\_temporizador\_bcd}, \texttt{u\_contador\_eventos}, \texttt{u\_mux\_display}, \texttt{u\_bcd7seg} y \texttt{u\_alarma\_intermitente}). Al final, las señales auxiliares del testbench indican $TT=25$ y $EE=99$, y \texttt{alarma\_flancos}$=8$ encendidos de la alarma.
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth,trim=0 39bp 0 0,clip}{2.png}{Vista completa de la simulación en Vivado (0 a 28 µs).}
+    \caption{Simulación en Vivado: ejecución completa de \texttt{tb\_lab04} (28\,345 ns).}
+    \label{fig:sim_vivado}
+\end{figure}
+
+\subsection{Reset, inicio, pausa y reanudación}
+La Figura~\ref{fig:sim_general} muestra los primeros 14~µs, que cubren los casos 1 a 9 y 11. \texttt{RESET} lleva el sistema a $TT=25$ y $EE=00$; la primera pulsación de \texttt{START\_PAUSE} levanta \texttt{RUNNING}, que cae con la segunda pulsación (pausa) y vuelve a subir con la tercera (reanudación). Mientras \texttt{RUNNING}$=0$, el tiempo se mantiene constante. Se aprecia además que los 3 pulsos de \texttt{EVENTO}, el \texttt{RESET\_EVENTO} y los 7 pulsos siguientes modifican solo el contador de eventos.
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{12.png}{Formas de onda 0--14 µs de tb\_lab04.}
+    \caption{Simulación: reset, inicio, pausa, reanudación, transición $10\rightarrow09$, llegada a cero, alarma y reinicio de tiempo.}
+    \label{fig:sim_general}
+\end{figure}
+
+La Figura~\ref{fig:sim_inicio} amplía los primeros 1000~ns. Tras el reset, la pulsación de \texttt{START\_PAUSE} (4 ciclos en alto) produce un único pulso de \texttt{LED\_EVENTO} y activa \texttt{RUNNING}; con cada \texttt{tick\_1s} la unidad de tiempo baja ($5\rightarrow4\rightarrow3$, es decir, $25\rightarrow24\rightarrow23$) y la segunda pulsación pausa el conteo. El contador de eventos avanza $0\rightarrow1\rightarrow2$ con las dos pulsaciones de \texttt{START\_PAUSE}, confirmando la decisión de diseño descrita antes y que una pulsación larga se cuenta una sola vez. En las señales \texttt{SEG} y \texttt{AN} se ve la multiplexación: \texttt{AN} recorre \texttt{fe}, \texttt{fd}, \texttt{fb}, \texttt{f7} (displays 0, 1, 2 y 3) mientras \texttt{SEG} entrega el patrón del dígito correspondiente (por ejemplo, \texttt{12} para el 5, \texttt{19} para el 4 y \texttt{24} para el 2).
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth,trim=221bp 0 0 0,clip}{13.png}{Acercamiento 0--1000 ns: reset, inicio, decremento, pausa, eventos y multiplexación.}
+    \caption{Simulación: reset, inicio, decremento por \texttt{TICK\_1S}, pausa, conteo de eventos y multiplexación de displays.}
+    \label{fig:sim_inicio}
+\end{figure}
+
+\subsection{Transición $10\rightarrow09$, llegada a cero y alarma}
+En la Figura~\ref{fig:sim_general}, hacia los 6~µs la decena de tiempo pasa de 1 a 0 mientras las unidades pasan de 0 a 9 (transición BCD $10\rightarrow09$). El temporizador continúa hasta $01\rightarrow00$ (cerca de los 8~µs), momento en que \texttt{RUNNING} cae a `0' y \texttt{alarma\_int} sube; la salida \texttt{ALARMA} parpadea mientras $TT=00$ y deja de hacerlo, con el tiempo restablecido a 25, al llegar el pulso de \texttt{RESET\_TIEMPO} (cerca de los 8,8~µs). El contador de eventos conserva su valor durante el reinicio del tiempo.
+
+\subsection{Incremento y saturación de eventos}
+La Figura~\ref{fig:sim_eventos} muestra el tramo en que se aplican las 95 pulsaciones de \texttt{EVENTO}: las unidades ciclan $0\ldots9$ y la decena avanza $2\rightarrow3\rightarrow\cdots\rightarrow9$. La Figura~\ref{fig:sim_fin} muestra el final de la simulación con $EE=99$ y con los pulsos adicionales de \texttt{EVENTO} sin efecto sobre el valor (saturación). En esta última se observa también el barrido de \texttt{AN} y \texttt{SEG} y que \texttt{tick\_display} es mucho más frecuente que \texttt{tick\_1s}.
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{11.png}{Formas de onda 12--26 µs: incremento de eventos.}
+    \caption{Simulación: incremento del contador de eventos.}
+    \label{fig:sim_eventos}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth,trim=634bp 345bp 13bp 134bp,clip}{9.png}{Final de la simulación (27,6--28,3 µs): saturación en 99 y multiplexación.}
+    \caption{Simulación: saturación del contador en 99 y multiplexación de displays.}
+    \label{fig:sim_fin}
+\end{figure}
+
+\subsection{Verificación mediante \texttt{assert}}
+La consola Tcl de Vivado (Figura~\ref{fig:consola}) registra los mensajes \texttt{report} de cada caso aprobado (casos 6, 4, 7, 8--9, 11 y 10 en la porción visible) y el mensaje final \texttt{SIMULACION COMPLETADA EXITOSAMENTE: TODOS LOS CASOS PASARON} a los 28\,345~ns, sin mensajes de falla de \texttt{assert}.
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth,trim=192bp 81bp 805bp 748bp,clip}{9.png}{Consola Tcl con los mensajes de los casos aprobados.}
+    \caption{Consola Tcl de Vivado: resultado de las verificaciones del testbench.}
+    \label{fig:consola}
+\end{figure}
+
+% ==============================
+% 12. ARCHIVO DE RESTRICCIONES
+% ==============================
+\section{Archivo de restricciones}
+El archivo \texttt{lab04.xdc} relaciona los puertos de \texttt{lab04\_top} con los pines de la Nexys 4 DDR: el reloj en \texttt{E3} (con \texttt{create\_clock} de 10 ns), los cinco pulsadores (BTND como reset general, BTNC, BTNU, BTNR y BTNL), los tres LEDs (LED0 a LED2), los siete segmentos (CA a CG hacia \texttt{SEG(0)} a \texttt{SEG(6)}) y los ocho ánodos. Todos usan LVCMOS33 y se agregan las propiedades \texttt{CFGBVS} y \texttt{CONFIG\_VOLTAGE}. El código se encuentra en los Anexos.
+
+% ==============================
+% 13. RESULTADOS OBTENIDOS
+% ==============================
+\section{Resultados obtenidos}
+
+\subsection{Síntesis y esquemas RTL}
+El proyecto se creó como proyecto RTL en VHDL para el dispositivo XC7A100TCSG324-1 con el nombre \texttt{LAB04\_TEMPORIZADOR\_EVENTOS}. Se ejecutaron \emph{Run Synthesis}, \emph{Run Implementation} y la generación del bitstream (la barra de estado de Vivado muestra \texttt{write\_bitstream Complete}, Figura~\ref{fig:sim_fin}).
+
+A nivel RTL (elaborado) se identifican los elementos esperados:
+\begin{itemize}
+    \item \textbf{\texttt{generador\_ticks}} (Figura~\ref{fig:rtl_ticks}): dos contadores, de 27 bits (\texttt{cnt\_1s}, necesarios porque $2^{27}>10^{8}$) y de 17 bits (\texttt{cnt\_disp}, pues $2^{17}>10^{5}$), cada uno con un sumador, un multiplexor de reinicio y un comparador con la constante máxima (\texttt{RTL\_ROM}) cuya salida se registra en \texttt{TICK\_1S} y \texttt{TICK\_DISPLAY}.
+    \item \textbf{\texttt{temporizador\_bcd}} (Figura~\ref{fig:rtl_temp}): registros \texttt{dec\_reg}, \texttt{uni\_reg}, \texttt{running\_reg} y \texttt{alarma\_reg}, restadores (\texttt{RTL\_SUB}), comparadores de igualdad (para 00, 01 y unidades en 0) y multiplexores que seleccionan carga inicial, decremento o mantenimiento.
+    \item \textbf{\texttt{contador\_eventos}} (Figura~\ref{fig:rtl_cont}): registros de decenas y unidades, sumadores, comparadores con 9 (acarreo y saturación) y la OR de \texttt{RESET} con \texttt{RESET\_EVENTO}.
+    \item \textbf{\texttt{mux\_display}} (Figura~\ref{fig:rtl_mux}): contador de 2 bits (\texttt{sel\_display\_reg}) habilitado por \texttt{TICK\_DISPLAY} y dos multiplexores de 4 entradas: uno para \texttt{AN} (con las constantes \texttt{11111110}, \texttt{11111101}, \texttt{11111011} y \texttt{11110111}) y otro para \texttt{BCD\_OUT}.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{8.png}{Esquema RTL de generador\_ticks.}
+    \caption{Esquema RTL de \texttt{generador\_ticks}.}
+    \label{fig:rtl_ticks}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{7.png}{Esquema RTL de temporizador\_bcd.}
+    \caption{Esquema RTL de \texttt{temporizador\_bcd} (54 celdas).}
+    \label{fig:rtl_temp}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{14.png}{Esquema RTL de contador\_eventos.}
+    \caption{Esquema RTL de \texttt{contador\_eventos} (28 celdas).}
+    \label{fig:rtl_cont}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{6.png}{Esquema RTL de mux\_display.}
+    \caption{Esquema RTL de \texttt{mux\_display}.}
+    \label{fig:rtl_mux}
+\end{figure}
+
+Tras la síntesis, Vivado optimiza y aplana la lógica sobre primitivas de la 7 Series. La Figura~\ref{fig:synth_top} muestra el esquema sintetizado del módulo superior (34 celdas, 24 puertos de E/S), que incorpora los buffers \texttt{IBUF}/\texttt{OBUF} de los pines y un \texttt{BUFG} para el reloj. La Figura~\ref{fig:synth_cont} muestra \texttt{contador\_eventos} ya mapeado: 8 flip-flops \texttt{FDRE} (4 bits de unidades y 4 de decenas) y la lógica combinacional en LUT3 a LUT6.
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{3.png}{Esquema sintetizado del módulo superior.}
+    \caption{Esquema del diseño sintetizado (\texttt{lab04\_top}).}
+    \label{fig:synth_top}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=1\linewidth}{15.png}{Esquema sintetizado de contador\_eventos.}
+    \caption{\texttt{contador\_eventos} tras la síntesis (FDRE y LUT).}
+    \label{fig:synth_cont}
+\end{figure}
+
+\subsection{Verificación en hardware}
+La Tabla~\ref{tab:hw} resume los puntos que deben demostrarse en la placa. Las figuras documentan la demostración.
+
+\begin{table}[H]
+\centering
+\caption{Lista de verificación en hardware.}
+\label{tab:hw}
+\small
+\begin{tabularx}{\textwidth}{|X|c|}
+\hline
+\textbf{Verificación} & \textbf{Cumple} \\ \hline
+Funcionamiento del reset (BTND)                          & \\ \hline
+Inicio y pausa con BTNC (LED0 refleja \texttt{RUNNING})   & \\ \hline
+Decremento cada segundo                                  & \\ \hline
+Transición correcta entre dígitos (por ejemplo, 10 a 09) & \\ \hline
+Incremento de eventos con BTNR                           & \\ \hline
+Reinicio independiente de tiempo (BTNU) y de eventos (BTNL) & \\ \hline
+Visualización estable de cuatro dígitos sin parpadeo     & \\ \hline
+Detención en cero                                        & \\ \hline
+Activación de alarma (LED1 intermitente)                 & \\ \hline
+Ausencia de conteos múltiples por pulsación              & \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=0.8\linewidth}{hw_inicio.jpg}{Fotografía: valor inicial 25 00 con LED0 apagado.}
+    \caption{Implementación física: estado inicial (\texttt{25 00}).}
+    \label{fig:hw_inicio}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=0.8\linewidth}{hw_corriendo.jpg}{Fotografía: temporizador en cuenta regresiva con LED0 encendido y eventos incrementados.}
+    \caption{Implementación física: temporizador en ejecución y eventos registrados.}
+    \label{fig:hw_corriendo}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \imagenopcional{width=0.8\linewidth}{hw_alarma.jpg}{Fotografía: tiempo 00, LED0 apagado y LED1 parpadeando.}
+    \caption{Implementación física: tiempo agotado (\texttt{00}) con alarma activa.}
+    \label{fig:hw_alarma}
+\end{figure}
+
+% ==============================
+% 14. ANÁLISIS DE ERRORES
+% ==============================
+\section{Análisis de errores}
+Durante el desarrollo se identificaron y resolvieron los siguientes aspectos:
+\begin{itemize}
+    \item \textbf{Simulación inviable con divisores reales:} un ``segundo'' de 100\,000\,000 ciclos es imposible de simular en un banco de pruebas. Se resolvió declarando los divisores como genéricos y sobrescribiéndolos desde el testbench (20, 2 y 5 ciclos).
+    \item \textbf{Conteos múltiples por pulsación:} usar el nivel del pulsador como habilitación incrementaría el contador en cada ciclo mientras el botón estuviera presionado. Se resolvió con \texttt{detector\_flanco}, y el testbench lo verifica manteniendo el botón 4 ciclos y comprobando que el contador avanza una sola unidad.
+    \item \textbf{Polaridad de displays:} los segmentos y ánodos de la Nexys 4 DDR son activos en bajo; la tabla de \texttt{bcd7seg} y los códigos de \texttt{mux\_display} se definieron invertidos respecto de la lógica positiva, y el monitor del testbench decodifica con los mismos patrones.
+    \item \textbf{Instante de lectura en el testbench:} los dígitos se reconstruyen a partir de la multiplexación, por lo que antes de cada \texttt{assert} se espera al menos un barrido completo (8 ciclos); por ello se agregaron esperas de 10 ciclos tras el reset, antes del primer \texttt{TICK\_1S}.
+    \item \textbf{Efecto de \texttt{START\_PAUSE} sobre el contador de eventos:} se decidió que las pulsaciones de \texttt{BTNC} también incrementan el contador (\texttt{pulso\_contar}); los casos 5 y 11 del testbench se ajustaron a los valores 05 y 08 respectivamente. Debe tenerse presente que esta decisión se aparta de la descripción básica del contador (solo \texttt{EVENTO}).
+    \item \textbf{Antirrebote no implementado:} \texttt{detector\_flanco} sincroniza y detecta flancos, pero no filtra el rebote mecánico: si el contacto produce varios flancos en pocos milisegundos, cada uno se interpretaría como una pulsación. Un filtro antirrebote (contador de estabilidad de unos 10--20~ms) queda como mejora.
+\end{itemize}
+
+% ==============================
+% 15. RESPUESTAS A PREGUNTAS
+% ==============================
+\section{Respuestas a preguntas}
+\begin{enumerate}
+    \item \textbf{¿Por qué se utiliza una señal de habilitación y no un nuevo reloj?}\\
+    Porque generar un reloj derivado crea un segundo dominio de reloj, con problemas de sesgo (\textit{skew}), cruces entre dominios y restricciones de temporización adicionales. Con una habilitación de un ciclo todos los registros siguen en el reloj principal y solo avanzan cuando el tick está activo, lo que mantiene un diseño síncrono y aprovecha las redes de reloj de la FPGA.
+
+    \item \textbf{¿Cuántos ciclos de 100 MHz equivalen a un segundo?}\\
+    $100\,000\,000$ ciclos ($100\times10^{6}\ \mathrm{Hz}\cdot1\ \mathrm{s}$); el contador cuenta de 0 a $99\,999\,999$ y emite el tick al completarse.
+
+    \item \textbf{¿Por qué deben reducirse los valores del divisor durante la simulación?}\\
+    Simular $10^{8}$ ciclos por cada segundo lógico tomaría un tiempo y una cantidad de datos impracticables. Con valores reducidos (20, 2 y 5 ciclos) la lógica es la misma y se observan decenas de ``segundos'' en microsegundos de simulación.
+
+    \item \textbf{¿Qué diferencia existe entre un contador binario y uno BCD?}\\
+    El binario usa las 16 combinaciones de 4 bits y su acarreo ocurre en 15$\to$0; el BCD solo usa 0 a 9 por dígito y debe pasar de 9 a 0 generando acarreo al dígito siguiente. El BCD facilita la visualización decimal (cada dígito va directo a un decodificador) a costa de lógica adicional.
+
+    \item \textbf{¿Cómo se realiza la transición 10 a 09?}\\
+    Cuando las unidades valen 0 y las decenas no son 0, se decrementa la decena y se cargan las unidades con 9 (\texttt{dec <= dec - 1; uni <= 9}), de modo que $1\,0\rightarrow0\,9$. Un decremento binario simple daría el código 0001\,1111, inválido en BCD.
+
+    \item \textbf{¿Por qué el temporizador debe detenerse en cero?}\\
+    Porque 00 es el valor mínimo representable y el tiempo agotado señala el fin de la cuenta; de continuar, el contador se desbordaría a 99 y la alarma perdería sentido. Por eso al llegar a 00 se baja \texttt{RUNNING}, se activa \texttt{ALARMA} y no se vuelve a decrementar.
+
+    \item \textbf{¿Qué función cumple \texttt{RUNNING}?}\\
+    Es el registro de estado inicio/pausa. Habilita el decremento con \texttt{TICK\_1S} y se muestra en LED0 para que el usuario sepa si el temporizador está activo.
+
+    \item \textbf{¿Por qué se requiere detección de flanco?}\\
+    Un humano mantiene el pulsador durante millones de ciclos; sin detección de flanco el sistema actuaría en cada ciclo con el botón en `1'. La detección de flanco entrega un único pulso de un ciclo por pulsación.
+
+    \item \textbf{¿Qué efecto produce el rebote de un pulsador?}\\
+    El contacto mecánico oscila durante unos milisegundos, generando varios flancos por una sola pulsación; el sistema los interpretaría como pulsaciones separadas (conteos múltiples o alternancias inesperadas de inicio/pausa). Se mitiga con un filtro antirrebote.
+
+    \item \textbf{¿Cómo funciona la multiplexación?}\\
+    Los segmentos son compartidos; un contador selecciona cíclicamente un único display (ánodo en `0') y presenta en las líneas de segmentos el dígito correspondiente. Cambiando cada 1~ms, cada display se enciende 1 de cada 4 intervalos (250~Hz) y la persistencia visual los hace parecer simultáneos.
+
+    \item \textbf{¿Qué ocurre si la frecuencia de refresco es demasiado baja?}\\
+    Se percibe parpadeo y los dígitos pueden verse uno a uno (efecto de barrido); además disminuye el brillo aparente. Se recomienda un refresco por display superior a unos 60~Hz.
+
+    \item \textbf{¿Cómo podría ampliarse el temporizador a minutos y segundos?}\\
+    Añadiendo un segundo par de dígitos BCD: las unidades de segundos van de 9 a 0, las decenas de segundos de 5 a 0 y, al llegar a 00 segundos, se decrementan los minutos y los segundos se cargan con 59. El multiplexor se amplía a cuatro dígitos de tiempo (\texttt{MM:SS}) y el contador de eventos se desplaza a los displays restantes o a otro modo de visualización.
+\end{enumerate}
+
+% ==============================
+% 16. CONCLUSIONES
+% ==============================
+\section{Conclusiones}
+El diseño modular en VHDL permitió construir un sistema completo (temporizador, contador de eventos, acondicionamiento de entradas, multiplexación y alarma) sobre la Nexys 4 DDR manteniendo un único reloj de 100 MHz y empleando señales de habilitación para las bases de tiempo. El uso de genéricos hizo posible simular el sistema con divisores reducidos y validar con \texttt{assert} los 11 casos mínimos, incluidas las transiciones BCD críticas ($10\rightarrow09$ y $01\rightarrow00$), la saturación en 99, el reinicio independiente de cada contador y la ausencia de múltiples incrementos por una pulsación sostenida; la simulación terminó sin fallos de \texttt{assert}.
+
+La cadena sincronizador, detector de flanco y pulso de un ciclo resultó esencial para tratar los pulsadores como datos y no como relojes; sin embargo, no sustituye a un filtro antirrebote, que queda como mejora. Los esquemas RTL y sintetizados permitieron relacionar el código con la estructura de hardware (contadores, comparadores, multiplexores y flip-flops). La actividad adicional de alarma intermitente mostró cómo ampliar el diseño con un módulo independiente y parametrizable sin modificar el temporizador. Finalmente, la decisión de contar también las pulsaciones de \texttt{START\_PAUSE} como eventos quedó documentada y reflejada en el banco de pruebas.
+
+\newpage
+% ==============================
+% REFERENCIAS
+% ==============================
+\addcontentsline{toc}{section}{Referencias}
+\begin{thebibliography}{9}
+
+\bibitem{nexys4ddr}
+Digilent Inc., \emph{Nexys 4 DDR FPGA Board Reference Manual}, DOC\#: 502-292. [En línea]. Disponible en: \url{https://digilent.com/reference/programmable-logic/nexys-4-ddr/reference-manual}
+
+\bibitem{artix7}
+Xilinx, Inc., \emph{7 Series FPGAs Data Sheet: Overview}, DS180.
+
+\bibitem{ieee1076}
+IEEE, \emph{IEEE Standard VHDL Language Reference Manual}, IEEE Std 1076-2008, 2009.
+
+\bibitem{ieee1164}
+IEEE, \emph{IEEE Standard Multivalue Logic System for VHDL Model Interoperability (Std\_logic\_1164)}, IEEE Std 1164-1993, 1993.
+
+\bibitem{ieee1076_3}
+IEEE, \emph{IEEE Standard VHDL Synthesis Packages}, IEEE Std 1076.3-1997, 1997.
+
+\bibitem{harris}
+D. M. Harris y S. L. Harris, \emph{Digital Design and Computer Architecture}, 2.ª ed. Morgan Kaufmann, 2012.
+
+\bibitem{pedroni}
+V. A. Pedroni, \emph{Circuit Design and Simulation with VHDL}, 2.ª ed. MIT Press, 2010.
+
+\bibitem{guia}
+J. Tobar Pinto, \emph{Laboratorio N.º 04: Temporizador regresivo y contador de eventos en FPGA}, CIT2109 Arquitectura y Organización de Computadores, 2026.
+
+\end{thebibliography}
+
+\newpage
+% ==============================
+% ANEXOS
+% ==============================
+\section{Anexos}
+
+\subsection{Repositorio del proyecto}
+
+\begin{itemize}
+    \item \url{https://github.com/JoakinMacAuliffe/Lab4_Arqui}
+\end{itemize}
+
+\subsection{Código fuente VHDL}
+
+\subsubsection{\texttt{generador\_ticks.vhd} (Generador de ticks de 1 s y de refresco)}
+\begin{lstlisting}[language=VHDL, caption={generador\_ticks.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: generador_ticks
+-- Descripción: Divisor de frecuencia a partir del reloj de 100 MHz de la placa
+--              Nexys 4 DDR. Genera pulsos de habilitación de un ciclo de reloj:
+--              - TICK_1S: pulso cada 1 segundo (100,000,000 ciclos en hardware).
+--              - TICK_DISPLAY: pulso para multiplexación de displays (~1 kHz).
+--              Incluye genéricos para reducir los divisores durante simulación.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity generador_ticks is
+    Generic (
+        -- Para síntesis en FPGA (100 MHz): 100_000_000 (1 s) y 100_000 (1 ms)
+        -- Para simulación, pueden reducirse desde el testbench o cambiando estos valores
+        MAX_COUNT_1S   : positive := 100_000_000;
+        MAX_COUNT_DISP : positive := 100_000
+    );
+    Port (
+        CLK          : in  STD_LOGIC;
+        RESET        : in  STD_LOGIC;
+        TICK_1S      : out STD_LOGIC;
+        TICK_DISPLAY : out STD_LOGIC
+    );
+end generador_ticks;
+
+architecture Behavioral of generador_ticks is
+    signal cnt_1s   : natural range 0 to MAX_COUNT_1S - 1   := 0;
+    signal cnt_disp : natural range 0 to MAX_COUNT_DISP - 1 := 0;
+begin
+
+    -- Proceso para generar TICK_1S (activo durante 1 ciclo cada 1 segundo)
+    proc_tick_1s : process(CLK)
+    begin
+        if rising_edge(CLK) then
+            if RESET = '1' then
+                cnt_1s  <= 0;
+                TICK_1S <= '0';
+            else
+                if cnt_1s = MAX_COUNT_1S - 1 then
+                    cnt_1s  <= 0;
+                    TICK_1S <= '1';
+                else
+                    cnt_1s  <= cnt_1s + 1;
+                    TICK_1S <= '0';
+                end if;
+            end if;
+        end if;
+    end process proc_tick_1s;
+
+    -- Proceso para generar TICK_DISPLAY (activo durante 1 ciclo para refresco de displays)
+    proc_tick_display : process(CLK)
+    begin
+        if rising_edge(CLK) then
+            if RESET = '1' then
+                cnt_disp     <= 0;
+                TICK_DISPLAY <= '0';
+            else
+                if cnt_disp = MAX_COUNT_DISP - 1 then
+                    cnt_disp     <= 0;
+                    TICK_DISPLAY <= '1';
+                else
+                    cnt_disp     <= cnt_disp + 1;
+                    TICK_DISPLAY <= '0';
+                end if;
+            end if;
+        end if;
+    end process proc_tick_display;
+
+end Behavioral;
+\end{lstlisting}
+
+\subsubsection{\texttt{detector\_flanco.vhd} (Módulo sincronizador y detector de flancos)}
+\begin{lstlisting}[language=VHDL, caption={detector\_flanco.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: detector_flanco
+-- Descripción: Sincronizador de doble flip-flop y detector de flanco de subida.
+--              Genera un pulso limpio de un solo ciclo de reloj (PULSO) por cada
+--              pulsación del botón (ENTRADA), evitando conteos múltiples.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity detector_flanco is
+    Port (
+        CLK     : in  STD_LOGIC;
+        RESET   : in  STD_LOGIC;
+        ENTRADA : in  STD_LOGIC;
+        PULSO   : out STD_LOGIC
+    );
+end detector_flanco;
+
+architecture Behavioral of detector_flanco is
+    signal sync_ff1        : STD_LOGIC := '0';
+    signal evento_actual   : STD_LOGIC := '0';
+    signal evento_anterior : STD_LOGIC := '0';
+begin
+
+    process(CLK)
+    begin
+        if rising_edge(CLK) then
+            if RESET = '1' then
+                sync_ff1        <= '0';
+                evento_actual   <= '0';
+                evento_anterior <= '0';
+            else
+                -- Doble etapa de sincronización contra metaestabilidad
+                sync_ff1        <= ENTRADA;
+                evento_actual   <= sync_ff1;
+                -- Registro de estado anterior para detección de flanco de subida
+                evento_anterior <= evento_actual;
+            end if;
+        end if;
+    end process;
+
+    -- Generación de un pulso de un ciclo en el flanco de subida
+    PULSO <= evento_actual and (not evento_anterior);
+
+end Behavioral;
+\end{lstlisting}
+
+\subsubsection{\texttt{temporizador\_bcd.vhd} (Temporizador regresivo BCD)}
+\begin{lstlisting}[language=VHDL, caption={temporizador\_bcd.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: temporizador_bcd
+-- Descripción: Contador regresivo en formato BCD de dos dígitos (00 a 99).
+--              - Inicia en un valor configurable (por defecto 25 segundos).
+--              - Permite iniciar/pausar con START_PAUSE.
+--              - Disminuye una unidad cada vez que TICK_1S = '1' cuando está activo.
+--              - Maneja transiciones BCD (ej. 10 -> 09).
+--              - Se detiene automáticamente al llegar a 00 y activa ALARMA.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity temporizador_bcd is
+    Generic (
+        INIT_DEC : integer range 0 to 9 := 2; -- Decenas iniciales (por defecto 2)
+        INIT_UNI : integer range 0 to 9 := 5  -- Unidades iniciales (por defecto 5)
+    );
+    Port (
+        CLK          : in  STD_LOGIC;
+        RESET        : in  STD_LOGIC;
+        RESET_TIEMPO : in  STD_LOGIC;
+        START_PAUSE  : in  STD_LOGIC;
+        TICK_1S      : in  STD_LOGIC;
+        DEC_TIEMPO   : out STD_LOGIC_VECTOR(3 downto 0);
+        UNI_TIEMPO   : out STD_LOGIC_VECTOR(3 downto 0);
+        RUNNING      : out STD_LOGIC;
+        ALARMA       : out STD_LOGIC
+    );
+end temporizador_bcd;
+
+architecture Behavioral of temporizador_bcd is
+    signal dec_reg     : unsigned(3 downto 0) := to_unsigned(INIT_DEC, 4);
+    signal uni_reg     : unsigned(3 downto 0) := to_unsigned(INIT_UNI, 4);
+    signal running_reg : STD_LOGIC := '0';
+    signal alarma_reg  : STD_LOGIC := '0';
+begin
+
+    process(CLK)
+    begin
+        if rising_edge(CLK) then
+            -- Reinicio general o reinicio específico de tiempo
+            if RESET = '1' or RESET_TIEMPO = '1' then
+                dec_reg     <= to_unsigned(INIT_DEC, 4);
+                uni_reg     <= to_unsigned(INIT_UNI, 4);
+                running_reg <= '0';
+                alarma_reg  <= '0';
+            else
+                -- Control de inicio y pausa (alterna estado si el tiempo no es 00)
+                if START_PAUSE = '1' then
+                    if not (dec_reg = 0 and uni_reg = 0) then
+                        running_reg <= not running_reg;
+                    else
+                        running_reg <= '0';
+                    end if;
+                -- Conteo regresivo sincronizado con TICK_1S
+                elsif running_reg = '1' and TICK_1S = '1' then
+                    if dec_reg = 0 and uni_reg = 0 then
+                        -- Ya se encuentra en 00: se detiene y mantiene la alarma
+                        running_reg <= '0';
+                        alarma_reg  <= '1';
+                    elsif dec_reg = 0 and uni_reg = 1 then
+                        -- Transición final 01 -> 00: llega a cero, se detiene y activa alarma
+                        dec_reg     <= to_unsigned(0, 4);
+                        uni_reg     <= to_unsigned(0, 4);
+                        running_reg <= '0';
+                        alarma_reg  <= '1';
+                    elsif uni_reg = 0 then
+                        -- Transición de decena (ej. 20 -> 19, 10 -> 09)
+                        dec_reg <= dec_reg - 1;
+                        uni_reg <= to_unsigned(9, 4);
+                    else
+                        -- Decremento normal de unidades
+                        uni_reg <= uni_reg - 1;
+                    end if;
+                end if;
+            end if;
+        end if;
+    end process;
+
+    DEC_TIEMPO <= std_logic_vector(dec_reg);
+    UNI_TIEMPO <= std_logic_vector(uni_reg);
+    RUNNING    <= running_reg;
+    ALARMA     <= alarma_reg;
+
+end Behavioral;
+\end{lstlisting}
+
+\subsubsection{\texttt{contador\_eventos.vhd} (Contador de eventos BCD)}
+\begin{lstlisting}[language=VHDL, caption={contador\_eventos.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: contador_eventos
+-- Descripción: Contador ascendente BCD de dos dígitos (00 a 99).
+--              - Inicia en 00.
+--              - Incrementa una unidad por cada pulso en EVENTO.
+--              - Al alcanzar 99, mantiene su valor (saturación) hasta ser reiniciado.
+--              - Permite reinicio general (RESET) o independiente (RESET_EVENTO).
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity contador_eventos is
+    Port (
+        CLK          : in  STD_LOGIC;
+        RESET        : in  STD_LOGIC;
+        RESET_EVENTO : in  STD_LOGIC;
+        EVENTO       : in  STD_LOGIC;
+        DEC_EVENTO   : out STD_LOGIC_VECTOR(3 downto 0);
+        UNI_EVENTO   : out STD_LOGIC_VECTOR(3 downto 0)
+    );
+end contador_eventos;
+
+architecture Behavioral of contador_eventos is
+    signal dec_reg : unsigned(3 downto 0) := (others => '0');
+    signal uni_reg : unsigned(3 downto 0) := (others => '0');
+begin
+
+    process(CLK)
+    begin
+        if rising_edge(CLK) then
+            if RESET = '1' or RESET_EVENTO = '1' then
+                dec_reg <= (others => '0');
+                uni_reg <= (others => '0');
+            elsif EVENTO = '1' then
+                if dec_reg = 9 and uni_reg = 9 then
+                    -- Saturación en 99: mantiene el valor máximo
+                    dec_reg <= to_unsigned(9, 4);
+                    uni_reg <= to_unsigned(9, 4);
+                elsif uni_reg = 9 then
+                    -- Acarreo BCD a las decenas (ej. 09 -> 10)
+                    uni_reg <= to_unsigned(0, 4);
+                    dec_reg <= dec_reg + 1;
+                else
+                    -- Incremento normal de unidades
+                    uni_reg <= uni_reg + 1;
+                end if;
+            end if;
+        end if;
+    end process;
+
+    DEC_EVENTO <= std_logic_vector(dec_reg);
+    UNI_EVENTO <= std_logic_vector(uni_reg);
+
+end Behavioral;
+\end{lstlisting}
+
+\subsubsection{\texttt{bcd7seg.vhd} (Decodificador BCD a siete segmentos)}
+\begin{lstlisting}[language=VHDL, caption={bcd7seg.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: bcd7seg
+-- Descripción: Decodificador de BCD (4 bits) a display de 7 segmentos.
+--              Diseñado para los displays de ánodo común (activos en bajo)
+--              de la placa Nexys 4 DDR: '0' enciende el segmento, '1' lo apaga.
+--              Orden de bits: SEG(6 downto 0) = (g, f, e, d, c, b, a)
+--              donde SEG(0)=CA, SEG(1)=CB, SEG(2)=CC, SEG(3)=CD,
+--                    SEG(4)=CE, SEG(5)=CF, SEG(6)=CG.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity bcd7seg is
+    Port (
+        BCD : in  STD_LOGIC_VECTOR(3 downto 0);
+        SEG : out STD_LOGIC_VECTOR(6 downto 0)
+    );
+end bcd7seg;
+
+architecture Behavioral of bcd7seg is
+begin
+
+    with BCD select
+        SEG <= "1000000" when "0000", -- 0
+               "1111001" when "0001", -- 1
+               "0100100" when "0010", -- 2
+               "0110000" when "0011", -- 3
+               "0011001" when "0100", -- 4
+               "0010010" when "0101", -- 5
+               "0000010" when "0110", -- 6
+               "1111000" when "0111", -- 7
+               "0000000" when "1000", -- 8
+               "0010000" when "1001", -- 9
+               "1111111" when others; -- Apagado para valores fuera de rango BCD
+
+end Behavioral;
+\end{lstlisting}
+
+\subsubsection{\texttt{mux\_display.vhd} (Multiplexor de displays)}
+\begin{lstlisting}[language=VHDL, caption={mux\_display.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: mux_display
+-- Descripción: Multiplexor de 4 displays de 7 segmentos con formato "TT EE":
+--              - Display 0 (AN(0)='0'): Unidades de eventos (UNI_EVENTO)
+--              - Display 1 (AN(1)='0'): Decenas de eventos (DEC_EVENTO)
+--              - Display 2 (AN(2)='0'): Unidades de tiempo (UNI_TIEMPO)
+--              - Display 3 (AN(3)='0'): Decenas de tiempo (DEC_TIEMPO)
+--              - Displays 4 a 7 (AN(7 downto 4)="1111"): Permanentemente apagados.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity mux_display is
+    Port (
+        CLK          : in  STD_LOGIC;
+        RESET        : in  STD_LOGIC;
+        TICK_DISPLAY : in  STD_LOGIC;
+        DEC_TIEMPO   : in  STD_LOGIC_VECTOR(3 downto 0);
+        UNI_TIEMPO   : in  STD_LOGIC_VECTOR(3 downto 0);
+        DEC_EVENTO   : in  STD_LOGIC_VECTOR(3 downto 0);
+        UNI_EVENTO   : in  STD_LOGIC_VECTOR(3 downto 0);
+        BCD_OUT      : out STD_LOGIC_VECTOR(3 downto 0);
+        AN           : out STD_LOGIC_VECTOR(7 downto 0)
+    );
+end mux_display;
+
+architecture Behavioral of mux_display is
+    signal sel_display : unsigned(1 downto 0) := "00";
+begin
+
+    -- Contador selector de 2 bits que avanza con cada pulso de TICK_DISPLAY
+    process(CLK)
+    begin
+        if rising_edge(CLK) then
+            if RESET = '1' then
+                sel_display <= "00";
+            elsif TICK_DISPLAY = '1' then
+                sel_display <= sel_display + 1;
+            end if;
+        end if;
+    end process;
+
+    -- Selección cíclica del ánodo activo (activo en bajo) y del dígito BCD
+    process(sel_display, UNI_EVENTO, DEC_EVENTO, UNI_TIEMPO, DEC_TIEMPO)
+    begin
+        case sel_display is
+            when "00" =>
+                AN      <= "11111110"; -- Display 0: Unidades de eventos
+                BCD_OUT <= UNI_EVENTO;
+            when "01" =>
+                AN      <= "11111101"; -- Display 1: Decenas de eventos
+                BCD_OUT <= DEC_EVENTO;
+            when "10" =>
+                AN      <= "11111011"; -- Display 2: Unidades de tiempo
+                BCD_OUT <= UNI_TIEMPO;
+            when "11" =>
+                AN      <= "11110111"; -- Display 3: Decenas de tiempo
+                BCD_OUT <= DEC_TIEMPO;
+            when others =>
+                AN      <= "11111111";
+                BCD_OUT <= "0000";
+        end case;
+    end process;
+
+end Behavioral;
+\end{lstlisting}
+
+\subsubsection{\texttt{alarma\_intermitente.vhd} (Actividad adicional)}
+\begin{lstlisting}[language=VHDL, caption={alarma\_intermitente.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: alarma_intermitente
+-- Descripción: Actividad adicional - Alarma intermitente.
+--              Convierte la alarma fija del temporizador (ALARMA_IN) en una señal
+--              que parpadea (ALARMA_OUT) mientras el tiempo está agotado.
+--              - Mientras ALARMA_IN = '0': la salida está apagada y el contador
+--                se mantiene en 0 (fase inicial "encendido").
+--              - Mientras ALARMA_IN = '1': la salida alterna entre encendido y
+--                apagado cada MAX_COUNT_BLINK ciclos de reloj.
+--              Con 100 MHz y MAX_COUNT_BLINK = 25_000_000, cada fase dura 0,25 s,
+--              es decir, el LED parpadea a 2 Hz.
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+
+entity alarma_intermitente is
+    Generic (
+        -- Ciclos de reloj que dura cada fase (encendido / apagado)
+        MAX_COUNT_BLINK : positive := 25_000_000
+    );
+    Port (
+        CLK        : in  STD_LOGIC;
+        RESET      : in  STD_LOGIC;
+        ALARMA_IN  : in  STD_LOGIC;
+        ALARMA_OUT : out STD_LOGIC
+    );
+end alarma_intermitente;
+
+
+architecture Behavioral of alarma_intermitente is
+    signal cnt_blink : natural range 0 to MAX_COUNT_BLINK - 1 := 0;
+    signal blink     : STD_LOGIC := '1';
+begin
+
+
+    process(CLK)
+    begin
+        if rising_edge(CLK) then
+            if RESET = '1' or ALARMA_IN = '0' then
+                -- Sin alarma: contador detenido y fase lista para empezar encendida
+                cnt_blink <= 0;
+                blink     <= '1';
+            elsif cnt_blink = MAX_COUNT_BLINK - 1 then
+                -- Fin de la fase actual: se invierte el estado del LED
+                cnt_blink <= 0;
+                blink     <= not blink;
+            else
+                cnt_blink <= cnt_blink + 1;
+            end if;
+        end if;
+    end process;
+
+
+    -- El LED solo puede encenderse cuando la alarma está activa
+    ALARMA_OUT <= ALARMA_IN and blink;
+
+
+end Behavioral;
+\end{lstlisting}
+
+\subsubsection{\texttt{lab04\_top.vhd} (El módulo principal que integra el diseño)}
+\begin{lstlisting}[language=VHDL, caption={lab04\_top.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: lab04_top
+-- Descripción: Módulo superior (Top-Level) del proyecto "Temporizador regresivo
+--              y contador de eventos" para la placa FPGA Nexys 4 DDR (XC7A100T).
+--              Integra:
+--              - generador_ticks
+--              - 4 instancias de detector_flanco para los pulsadores de control
+--              - temporizador_bcd
+--              - contador_eventos
+--              - mux_display
+--              - bcd7seg
+--              - alarma_intermitente (actividad adicional: LED de alarma parpadeante)
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+
+entity lab04_top is
+    Generic (
+        -- Valores por defecto para síntesis en placa (reloj de 100 MHz)
+        -- En el testbench se sobreescriben con valores reducidos para simulación rápida
+        MAX_COUNT_1S   : positive := 100_000_000;
+        MAX_COUNT_DISP : positive := 100_000;
+        MAX_COUNT_BLINK : positive := 25_000_000; -- 0,25 s por fase -> parpadeo a 2 Hz
+        INIT_DEC       : integer range 0 to 9 := 2;
+        INIT_UNI       : integer range 0 to 9 := 5
+    );
+    Port (
+        CLK          : in  STD_LOGIC;
+        RESET        : in  STD_LOGIC;
+        START_PAUSE  : in  STD_LOGIC;
+        RESET_TIEMPO : in  STD_LOGIC;
+        EVENTO       : in  STD_LOGIC;
+        RESET_EVENTO : in  STD_LOGIC;
+        SEG          : out STD_LOGIC_VECTOR(6 downto 0);
+        AN           : out STD_LOGIC_VECTOR(7 downto 0);
+        ALARMA       : out STD_LOGIC;
+        RUNNING      : out STD_LOGIC;
+        LED_EVENTO   : out STD_LOGIC
+    );
+end lab04_top;
+
+
+architecture Structural of lab04_top is
+
+
+    -- Declaración de componentes
+    component generador_ticks is
+        Generic (
+            MAX_COUNT_1S   : positive := 100_000_000;
+            MAX_COUNT_DISP : positive := 100_000
+        );
+        Port (
+            CLK          : in  STD_LOGIC;
+            RESET        : in  STD_LOGIC;
+            TICK_1S      : out STD_LOGIC;
+            TICK_DISPLAY : out STD_LOGIC
+        );
+    end component;
+
+
+    component detector_flanco is
+        Port (
+            CLK     : in  STD_LOGIC;
+            RESET   : in  STD_LOGIC;
+            ENTRADA : in  STD_LOGIC;
+            PULSO   : out STD_LOGIC
+        );
+    end component;
+
+
+    component temporizador_bcd is
+        Generic (
+            INIT_DEC : integer range 0 to 9 := 2;
+            INIT_UNI : integer range 0 to 9 := 5
+        );
+        Port (
+            CLK          : in  STD_LOGIC;
+            RESET        : in  STD_LOGIC;
+            RESET_TIEMPO : in  STD_LOGIC;
+            START_PAUSE  : in  STD_LOGIC;
+            TICK_1S      : in  STD_LOGIC;
+            DEC_TIEMPO   : out STD_LOGIC_VECTOR(3 downto 0);
+            UNI_TIEMPO   : out STD_LOGIC_VECTOR(3 downto 0);
+            RUNNING      : out STD_LOGIC;
+            ALARMA       : out STD_LOGIC
+        );
+    end component;
+
+
+    component contador_eventos is
+        Port (
+            CLK          : in  STD_LOGIC;
+            RESET        : in  STD_LOGIC;
+            RESET_EVENTO : in  STD_LOGIC;
+            EVENTO       : in  STD_LOGIC;
+            DEC_EVENTO   : out STD_LOGIC_VECTOR(3 downto 0);
+            UNI_EVENTO   : out STD_LOGIC_VECTOR(3 downto 0)
+        );
+    end component;
+
+
+    component mux_display is
+        Port (
+            CLK          : in  STD_LOGIC;
+            RESET        : in  STD_LOGIC;
+            TICK_DISPLAY : in  STD_LOGIC;
+            DEC_TIEMPO   : in  STD_LOGIC_VECTOR(3 downto 0);
+            UNI_TIEMPO   : in  STD_LOGIC_VECTOR(3 downto 0);
+            DEC_EVENTO   : in  STD_LOGIC_VECTOR(3 downto 0);
+            UNI_EVENTO   : in  STD_LOGIC_VECTOR(3 downto 0);
+            BCD_OUT      : out STD_LOGIC_VECTOR(3 downto 0);
+            AN           : out STD_LOGIC_VECTOR(7 downto 0)
+        );
+    end component;
+
+
+    component bcd7seg is
+        Port (
+            BCD : in  STD_LOGIC_VECTOR(3 downto 0);
+            SEG : out STD_LOGIC_VECTOR(6 downto 0)
+        );
+    end component;
+
+
+    component alarma_intermitente is
+        Generic (
+            MAX_COUNT_BLINK : positive := 25_000_000
+        );
+        Port (
+            CLK        : in  STD_LOGIC;
+            RESET      : in  STD_LOGIC;
+            ALARMA_IN  : in  STD_LOGIC;
+            ALARMA_OUT : out STD_LOGIC
+        );
+    end component;
+
+
+    -- Señales internas de habilitación (ticks)
+    signal tick_1s            : STD_LOGIC;
+    signal tick_display       : STD_LOGIC;
+
+
+    -- Pulsos de un ciclo provenientes de los detectores de flanco
+    signal pulso_start_pause  : STD_LOGIC;
+    signal pulso_reset_tiempo : STD_LOGIC;
+    signal pulso_evento       : STD_LOGIC;
+    signal pulso_reset_evento : STD_LOGIC;
+
+
+    -- Pulso que incrementa el contador: BTNR (EVENTO) o BTNC (START_PAUSE)
+    signal pulso_contar       : STD_LOGIC;
+
+
+    -- Dígitos BCD del temporizador y del contador de eventos
+    signal dec_tiempo         : STD_LOGIC_VECTOR(3 downto 0);
+    signal uni_tiempo         : STD_LOGIC_VECTOR(3 downto 0);
+    signal dec_evento         : STD_LOGIC_VECTOR(3 downto 0);
+    signal uni_evento         : STD_LOGIC_VECTOR(3 downto 0);
+
+
+    -- Alarma fija generada por el temporizador (antes de hacerla intermitente)
+    signal alarma_int         : STD_LOGIC;
+
+
+    -- Dígito BCD seleccionado por el multiplexor hacia el decodificador 7 segmentos
+    signal bcd_actual         : STD_LOGIC_VECTOR(3 downto 0);
+
+
+begin
+
+
+    -- 1. Generador de ticks (1 segundo y refresco de displays)
+    u_generador_ticks : generador_ticks
+        generic map (
+            MAX_COUNT_1S   => MAX_COUNT_1S,
+            MAX_COUNT_DISP => MAX_COUNT_DISP
+        )
+        port map (
+            CLK          => CLK,
+            RESET        => RESET,
+            TICK_1S      => tick_1s,
+            TICK_DISPLAY => tick_display
+        );
+
+
+    -- 2. Detectores de flanco para pulsadores de control y eventos
+    u_det_start_pause : detector_flanco
+        port map (
+            CLK     => CLK,
+            RESET   => RESET,
+            ENTRADA => START_PAUSE,
+            PULSO   => pulso_start_pause
+        );
+
+
+    u_det_reset_tiempo : detector_flanco
+        port map (
+            CLK     => CLK,
+            RESET   => RESET,
+            ENTRADA => RESET_TIEMPO,
+            PULSO   => pulso_reset_tiempo
+        );
+
+
+    u_det_evento : detector_flanco
+        port map (
+            CLK     => CLK,
+            RESET   => RESET,
+            ENTRADA => EVENTO,
+            PULSO   => pulso_evento
+        );
+
+
+    u_det_reset_evento : detector_flanco
+        port map (
+            CLK     => CLK,
+            RESET   => RESET,
+            ENTRADA => RESET_EVENTO,
+            PULSO   => pulso_reset_evento
+        );
+
+
+    -- 3. Temporizador regresivo BCD (TT)
+    u_temporizador_bcd : temporizador_bcd
+        generic map (
+            INIT_DEC => INIT_DEC,
+            INIT_UNI => INIT_UNI
+        )
+        port map (
+            CLK          => CLK,
+            RESET        => RESET,
+            RESET_TIEMPO => pulso_reset_tiempo,
+            START_PAUSE  => pulso_start_pause,
+            TICK_1S      => tick_1s,
+            DEC_TIEMPO   => dec_tiempo,
+            UNI_TIEMPO   => uni_tiempo,
+            RUNNING      => RUNNING,
+            ALARMA       => alarma_int
+        );
+
+
+    -- 4. Contador de eventos BCD (EE)
+    u_contador_eventos : contador_eventos
+        port map (
+            CLK          => CLK,
+            RESET        => RESET,
+            RESET_EVENTO => pulso_reset_evento,
+            EVENTO       => pulso_contar,
+            DEC_EVENTO   => dec_evento,
+            UNI_EVENTO   => uni_evento
+        );
+
+
+    -- 5. Multiplexor de 4 displays (Displays 3-2: Tiempo, Displays 1-0: Eventos)
+    u_mux_display : mux_display
+        port map (
+            CLK          => CLK,
+            RESET        => RESET,
+            TICK_DISPLAY => tick_display,
+            DEC_TIEMPO   => dec_tiempo,
+            UNI_TIEMPO   => uni_tiempo,
+            DEC_EVENTO   => dec_evento,
+            UNI_EVENTO   => uni_evento,
+            BCD_OUT      => bcd_actual,
+            AN           => AN
+        );
+
+
+    -- 6. Decodificador BCD a 7 segmentos (activo en bajo)
+    u_bcd7seg : bcd7seg
+        port map (
+            BCD => bcd_actual,
+            SEG => SEG
+        );
+
+
+    -- 7. Alarma intermitente (actividad adicional): LED1 parpadea mientras TT = 00
+    u_alarma_intermitente : alarma_intermitente
+        generic map (
+            MAX_COUNT_BLINK => MAX_COUNT_BLINK
+        )
+        port map (
+            CLK        => CLK,
+            RESET      => RESET,
+            ALARMA_IN  => alarma_int,
+            ALARMA_OUT => ALARMA
+        );
+
+
+    -- Cada pulsación de EVENTO o de START_PAUSE cuenta como un evento
+    pulso_contar <= pulso_evento or pulso_start_pause;
+
+
+    -- Salida indicadora de detección de evento
+    LED_EVENTO <= pulso_contar;
+
+
+end Structural;
+\end{lstlisting}
+
+\subsection{Testbench (Banco de pruebas)}
+
+\subsubsection{\texttt{tb\_lab04.vhd} (Código de simulación con los casos de prueba)}
+\begin{lstlisting}[language=VHDL, caption={tb\_lab04.vhd}]
+----------------------------------------------------------------------------------
+-- Módulo: tb_lab04
+-- Descripción: Banco de pruebas (Testbench) exhaustivo para lab04_top.
+--              Verifica mediante sentencias ASSERT los 11 casos de prueba:
+--              1. Reset general (Tiempo = 25, Eventos = 00, RUNNING = 0, ALARMA = 0)
+--              2. Inicio del temporizador (START_PAUSE -> RUNNING = 1)
+--              3. Decremento y Pausa (el tiempo se mantiene constante en pausa)
+--              4. Reanudación del conteo regresivo
+--              5. Incremento de eventos (un solo conteo por pulsación larga;
+--                 las pulsaciones de START_PAUSE también cuentan como evento)
+--              6. Reinicio independiente de eventos (RESET_EVENTO -> 00)
+--              7. Transición BCD de 10 a 09 en el temporizador
+--              8. Transición de 01 a 00 y detención automática
+--              9. Activación de ALARMA al llegar a 00 (alarma intermitente: parpadea)
+--              10. Saturación del contador de eventos en 99
+--              11. Reinicio independiente de tiempo (RESET_TIEMPO -> 25)
+----------------------------------------------------------------------------------
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+
+entity tb_lab04 is
+-- Entidad de testbench vacía
+end tb_lab04;
+
+
+architecture Behavioral of tb_lab04 is
+
+
+    -- Declaración del componente bajo prueba (DUT)
+    component lab04_top is
+        Generic (
+            MAX_COUNT_1S   : positive := 100_000_000;
+            MAX_COUNT_DISP : positive := 100_000;
+            MAX_COUNT_BLINK : positive := 25_000_000;
+            INIT_DEC       : integer range 0 to 9 := 2;
+            INIT_UNI       : integer range 0 to 9 := 5
+        );
+        Port (
+            CLK          : in  STD_LOGIC;
+            RESET        : in  STD_LOGIC;
+            START_PAUSE  : in  STD_LOGIC;
+            RESET_TIEMPO : in  STD_LOGIC;
+            EVENTO       : in  STD_LOGIC;
+            RESET_EVENTO : in  STD_LOGIC;
+            SEG          : out STD_LOGIC_VECTOR(6 downto 0);
+            AN           : out STD_LOGIC_VECTOR(7 downto 0);
+            ALARMA       : out STD_LOGIC;
+            RUNNING      : out STD_LOGIC;
+            LED_EVENTO   : out STD_LOGIC
+        );
+    end component;
+
+
+    -- Constantes de simulación (divisores reducidos para simular en microsegundos)
+    constant CLK_PERIOD     : time     := 10 ns; -- Reloj de 100 MHz
+    constant SIM_COUNT_1S   : positive := 20;    -- 20 ciclos por cada "segundo" simulado
+    constant SIM_COUNT_DISP : positive := 2;     -- 2 ciclos por cambio de display (8 ciclos barrido completo)
+    constant SIM_COUNT_BLINK : positive := 5;    -- 5 ciclos por fase del parpadeo de ALARMA
+    constant INIT_DEC_VAL   : integer  := 2;
+    constant INIT_UNI_VAL   : integer  := 5;
+
+
+    -- Señales conectadas al DUT (Device Under Test)
+    signal CLK          : STD_LOGIC := '0';
+    signal RESET        : STD_LOGIC := '0';
+    signal START_PAUSE  : STD_LOGIC := '0';
+    signal RESET_TIEMPO : STD_LOGIC := '0';
+    signal EVENTO       : STD_LOGIC := '0';
+    signal RESET_EVENTO : STD_LOGIC := '0';
+    signal SEG          : STD_LOGIC_VECTOR(6 downto 0);
+    signal AN           : STD_LOGIC_VECTOR(7 downto 0);
+    signal ALARMA       : STD_LOGIC;
+    signal RUNNING      : STD_LOGIC;
+    signal LED_EVENTO   : STD_LOGIC;
+
+
+    -- Señales auxiliares en el testbench para reconstruir los 4 dígitos mostrados
+    -- a partir de la multiplexación de AN y SEG (facilita visualización y asserts)
+    signal obs_dec_tiempo : integer range 0 to 15 := 0;
+    signal obs_uni_tiempo : integer range 0 to 15 := 0;
+    signal obs_dec_evento : integer range 0 to 15 := 0;
+    signal obs_uni_evento : integer range 0 to 15 := 0;
+
+
+    -- Contador de encendidos (flancos de subida) de ALARMA, para verificar el parpadeo
+    signal alarma_prev    : STD_LOGIC := '0';
+    signal alarma_flancos : natural   := 0;
+
+
+    -- Bandera para detener el generador de reloj al finalizar la simulación
+    signal sim_finished   : boolean := false;
+
+
+    -- Función auxiliar inversa para decodificar SEG (activo en bajo) a entero (0..9)
+    function seg7_to_int(seg_val : std_logic_vector(6 downto 0)) return integer is
+    begin
+        case seg_val is
+            when "1000000" => return 0;
+            when "1111001" => return 1;
+            when "0100100" => return 2;
+            when "0110000" => return 3;
+            when "0011001" => return 4;
+            when "0010010" => return 5;
+            when "0000010" => return 6;
+            when "1111000" => return 7;
+            when "0000000" => return 8;
+            when "0010000" => return 9;
+            when others    => return 15;
+        end case;
+    end function;
+
+
+begin
+
+
+    -- Instanciación del módulo superior (DUT)
+    uut : lab04_top
+        generic map (
+            MAX_COUNT_1S   => SIM_COUNT_1S,
+            MAX_COUNT_DISP => SIM_COUNT_DISP,
+            MAX_COUNT_BLINK => SIM_COUNT_BLINK,
+            INIT_DEC       => INIT_DEC_VAL,
+            INIT_UNI       => INIT_UNI_VAL
+        )
+        port map (
+            CLK          => CLK,
+            RESET        => RESET,
+            START_PAUSE  => START_PAUSE,
+            RESET_TIEMPO => RESET_TIEMPO,
+            EVENTO       => EVENTO,
+            RESET_EVENTO => RESET_EVENTO,
+            SEG          => SEG,
+            AN           => AN,
+            ALARMA       => ALARMA,
+            RUNNING      => RUNNING,
+            LED_EVENTO   => LED_EVENTO
+        );
+
+
+    -- Generación de reloj de 100 MHz
+    proc_clk : process
+    begin
+        while not sim_finished loop
+            CLK <= '0';
+            wait for CLK_PERIOD / 2;
+            CLK <= '1';
+            wait for CLK_PERIOD / 2;
+        end loop;
+        wait;
+    end process proc_clk;
+
+
+    -- Monitor de displays: captura cada dígito según el ánodo activo AN(3 downto 0)
+    -- y verifica que los ánodos AN(7 downto 4) permanezcan siempre apagados ("1111")
+    proc_monitor_display : process(CLK)
+    begin
+        if rising_edge(CLK) then
+            if RESET = '0' then
+                assert AN(7 downto 4) = "1111"
+                    report "Error: Los displays 7 a 4 deben permanecer apagados (1111)."
+                    severity error;
+            end if;
+
+
+            case AN(3 downto 0) is
+                when "1110" => obs_uni_evento <= seg7_to_int(SEG); -- Display 0
+                when "1101" => obs_dec_evento <= seg7_to_int(SEG); -- Display 1
+                when "1011" => obs_uni_tiempo <= seg7_to_int(SEG); -- Display 2
+                when "0111" => obs_dec_tiempo <= seg7_to_int(SEG); -- Display 3
+                when others => null;
+            end case;
+        end if;
+    end process proc_monitor_display;
+
+
+    -- Monitor de la alarma intermitente: cuenta cada vez que ALARMA pasa de '0' a '1'
+    proc_monitor_alarma : process(CLK)
+    begin
+        if rising_edge(CLK) then
+            alarma_prev <= ALARMA;
+            if ALARMA = '1' and alarma_prev = '0' then
+                alarma_flancos <= alarma_flancos + 1;
+            end if;
+        end if;
+    end process proc_monitor_alarma;
+
+
+    -- Proceso principal de estímulos y verificación con ASSERT
+    proc_estimulos : process
+
+
+        -- Copia del número de encendidos de ALARMA (para comprobar que deja de parpadear)
+        variable flancos_guardados : natural := 0;
+
+
+        -- Procedimiento auxiliar para avanzar N ciclos de reloj
+        procedure wait_cycles(n : positive) is
+        begin
+            for i in 1 to n loop
+                wait until rising_edge(CLK);
+            end loop;
+        end procedure;
+
+
+        -- Procedimiento para simular la pulsación de un botón (duración total = 20 ciclos)
+        -- Mantiene la señal en '1' durante 4 ciclos (verifica que detector_flanco
+        -- solo genere un pulso de 1 ciclo) y luego espera 16 ciclos en '0'.
+        procedure press_button(signal btn : out std_logic) is
+        begin
+            btn <= '1';
+            wait_cycles(4);
+            btn <= '0';
+            wait_cycles(SIM_COUNT_1S - 4);
+        end procedure;
+
+
+    begin
+        --------------------------------------------------------------------------
+        -- CASO 1: Reset general
+        --------------------------------------------------------------------------
+        RESET <= '1';
+        wait_cycles(5);
+        RESET <= '0';
+        -- Esperamos 10 ciclos (mitad del periodo de TICK_1S) para que mux_display
+        -- escanee los 4 dígitos (8 ciclos) antes del primer TICK_1S (ciclo 20)
+        wait_cycles(10);
+
+
+        assert (RUNNING = '0' and ALARMA = '0')
+            report "Fallo Caso 1: RUNNING y ALARMA deben ser '0' tras el reset."
+            severity error;
+        assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 5)
+            report "Fallo Caso 1: El tiempo inicial debe ser 25."
+            severity error;
+        assert (obs_dec_evento = 0 and obs_uni_evento = 0)
+            report "Fallo Caso 1: El contador de eventos debe iniciar en 00."
+            severity error;
+        report "Caso 1 OK: Reset general verificado (TT=25, EE=00)." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 2: Inicio del temporizador y verificación de decrementos
+        --------------------------------------------------------------------------
+        START_PAUSE <= '1';
+        wait_cycles(4);
+        START_PAUSE <= '0';
+        wait_cycles(2); -- En este punto RUNNING ya conmutó a '1' antes del ciclo 20
+
+
+        assert RUNNING = '1'
+            report "Fallo Caso 2: RUNNING debe activarse ('1') al pulsar START_PAUSE."
+            severity error;
+
+
+        -- Completamos los 14 ciclos restantes para llegar al ciclo 30 (tras 1er TICK_1S)
+        wait_cycles(14);
+        assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 4)
+            report "Fallo Caso 2: El temporizador debio decrementar de 25 a 24."
+            severity error;
+
+
+        -- Esperamos 1 segundo adicional (20 ciclos) -> debe bajar a 23
+        wait_cycles(SIM_COUNT_1S);
+        assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 3)
+            report "Fallo Caso 2: El temporizador debio decrementar de 24 a 23."
+            severity error;
+        report "Caso 2 OK: Inicio y decremento del temporizador verificados (25 -> 24 -> 23)." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 3: Pausa del temporizador
+        --------------------------------------------------------------------------
+        press_button(START_PAUSE);
+        assert RUNNING = '0'
+            report "Fallo Caso 3: RUNNING debe ser '0' en estado de pausa."
+            severity error;
+
+
+        -- Esperamos 3 segundos simulados en pausa; el tiempo debe mantenerse en 23
+        wait_cycles(3 * SIM_COUNT_1S);
+        assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 3 and RUNNING = '0')
+            report "Fallo Caso 3: El tiempo no debe cambiar mientras esta en pausa."
+            severity error;
+        report "Caso 3 OK: Pausa verificada (se mantiene en 23)." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 5: Incremento de eventos (evitando conteos múltiples por pulsación)
+        --------------------------------------------------------------------------
+        -- Realizamos 3 pulsaciones largas de EVENTO (cada una de 4 ciclos en '1')
+        press_button(EVENTO);
+        press_button(EVENTO);
+        press_button(EVENTO);
+
+
+        -- 2 pulsaciones de START_PAUSE (inicio y pausa) + 3 de EVENTO = 05
+        assert (obs_dec_evento = 0 and obs_uni_evento = 5)
+            report "Fallo Caso 5: El contador de eventos debe mostrar 05 (2 START_PAUSE + 3 EVENTO)."
+            severity error;
+        report "Caso 5 OK: Incremento de eventos verificado (EE=05)." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 6: Reinicio independiente de eventos
+        --------------------------------------------------------------------------
+        press_button(RESET_EVENTO);
+
+
+        assert (obs_dec_evento = 0 and obs_uni_evento = 0)
+            report "Fallo Caso 6: RESET_EVENTO debe reiniciar el contador de eventos a 00."
+            severity error;
+        assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 3)
+            report "Fallo Caso 6: RESET_EVENTO no debe alterar el tiempo del temporizador (23)."
+            severity error;
+        report "Caso 6 OK: Reinicio independiente de eventos verificado (EE=00, TT=23)." severity note;
+
+
+        -- Incrementamos 7 eventos para dejar EE=07 durante el conteo regresivo
+        for i in 1 to 7 loop
+            press_button(EVENTO);
+        end loop;
+        assert (obs_dec_evento = 0 and obs_uni_evento = 7)
+            report "Fallo al cargar 07 eventos."
+            severity error;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 4: Reanudación del temporizador
+        --------------------------------------------------------------------------
+        -- Al pulsar START_PAUSE (20 ciclos), se reanuda y transcurre 1 segundo (23 -> 22)
+        press_button(START_PAUSE);
+        assert (RUNNING = '1' and obs_dec_tiempo = 2 and obs_uni_tiempo = 2)
+            report "Fallo Caso 4: El temporizador debio reanudarse y pasar de 23 a 22."
+            severity error;
+        report "Caso 4 OK: Reanudacion verificada (TT=22, RUNNING=1)." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 7: Transición BCD de 10 a 09
+        --------------------------------------------------------------------------
+        -- Avanzamos 12 segundos simulados: de 22 baja a 10
+        wait_cycles(12 * SIM_COUNT_1S);
+        assert (obs_dec_tiempo = 1 and obs_uni_tiempo = 0)
+            report "Fallo previo a Caso 7: El temporizador debio llegar a 10."
+            severity error;
+
+
+        -- Avanzamos 1 segundo más: transición crítica 10 -> 09
+        wait_cycles(SIM_COUNT_1S);
+        assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 9)
+            report "Fallo Caso 7: Transicion BCD incorrecta de 10 a 09."
+            severity error;
+        report "Caso 7 OK: Transicion BCD 10 -> 09 verificada correctamente." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASOS 8 y 9: Transición 01 a 00, detención en 00 y activación de ALARMA
+        --------------------------------------------------------------------------
+        -- Avanzamos 8 segundos simulados: de 09 baja a 01
+        wait_cycles(8 * SIM_COUNT_1S);
+        assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 1 and RUNNING = '1' and ALARMA = '0')
+            report "Fallo previo a Caso 8: El temporizador debio estar en 01 con ALARMA='0'."
+            severity error;
+
+
+        -- Avanzamos 1 segundo más: transición 01 -> 00
+        wait_cycles(SIM_COUNT_1S);
+        assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 0)
+            report "Fallo Caso 8: El temporizador debio llegar a 00."
+            severity error;
+        assert RUNNING = '0'
+            report "Fallo Caso 8: El temporizador debe detenerse (RUNNING='0') al llegar a 00."
+            severity error;
+        assert alarma_flancos >= 1
+            report "Fallo Caso 9: La senal ALARMA debe activarse al llegar el tiempo a 00."
+            severity error;
+
+
+        -- Esperamos 3 segundos adicionales para comprobar que no continúa disminuyendo
+        wait_cycles(3 * SIM_COUNT_1S);
+        assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 0 and RUNNING = '0')
+            report "Fallo Caso 8/9: El temporizador debe permanecer detenido en 00."
+            severity error;
+        -- En 60 ciclos con fases de 5 ciclos, ALARMA debe haberse encendido varias veces
+        assert alarma_flancos >= 3
+            report "Fallo Caso 9: ALARMA debe parpadear (encenderse y apagarse) mientras TT = 00."
+            severity error;
+        report "Casos 8 y 9 OK: Llegada a 00, detencion automatica y ALARMA intermitente verificadas." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 11: Reinicio independiente de tiempo (RESET_TIEMPO)
+        --------------------------------------------------------------------------
+        press_button(RESET_TIEMPO);
+        assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 5 and RUNNING = '0' and ALARMA = '0')
+            report "Fallo Caso 11: RESET_TIEMPO debe restaurar el tiempo a 25 y apagar ALARMA."
+            severity error;
+        -- 7 de EVENTO + 1 START_PAUSE (reanudación) = 08
+        assert (obs_dec_evento = 0 and obs_uni_evento = 8)
+            report "Fallo Caso 11: RESET_TIEMPO no debe afectar el contador de eventos (08)."
+            severity error;
+        -- Tras RESET_TIEMPO la alarma debe quedar apagada y dejar de parpadear
+        flancos_guardados := alarma_flancos;
+        wait_cycles(2 * SIM_COUNT_1S);
+        assert (ALARMA = '0' and alarma_flancos = flancos_guardados)
+            report "Fallo Caso 11: ALARMA debe dejar de parpadear despues de RESET_TIEMPO."
+            severity error;
+        report "Caso 11 OK: Reinicio de tiempo verificado (TT=25, ALARMA=0, EE=08)." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- CASO 10: Saturación del contador de eventos en 99
+        --------------------------------------------------------------------------
+        -- Actualmente EE=08; enviamos 91 pulsos para llegar a 99, más 4 pulsos extra
+        for i in 1 to 95 loop
+            press_button(EVENTO);
+        end loop;
+
+
+        assert (obs_dec_evento = 9 and obs_uni_evento = 9)
+            report "Fallo Caso 10: El contador de eventos debe saturarse y mantener 99."
+            severity error;
+        report "Caso 10 OK: Saturacion del contador de eventos en 99 verificada." severity note;
+
+
+        --------------------------------------------------------------------------
+        -- Fin de la simulación
+        --------------------------------------------------------------------------
+        report "=== SIMULACION COMPLETADA EXITOSAMENTE: TODOS LOS CASOS PASARON ===" severity note;
+        sim_finished <= true;
+        wait;
+    end process proc_estimulos;
+
+
+end Behavioral;
+\end{lstlisting}
+
+\subsection{Archivo XDC (Restricciones)}
+
+\subsubsection{\texttt{lab04.xdc} (La asignación física de pines para la FPGA)}
+\begin{lstlisting}[language=tcl, caption={lab04.xdc}]
+## ============================================================================
+## Archivo de restricciones (XDC) - Laboratorio N.º 04: Temporizador y Contador
+## Placa: Digilent Nexys 4 DDR (FPGA Artix-7 XC7A100TCSG324-1)
+## ============================================================================
+
+## 1. Reloj del sistema (100 MHz)
+set_property -dict { PACKAGE_PIN E3    IOSTANDARD LVCMOS33 } [get_ports { CLK }];
+create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports { CLK }];
+
+## 2. Pulsadores (Botones de control)
+## BTND: Reset general
+set_property -dict { PACKAGE_PIN P18   IOSTANDARD LVCMOS33 } [get_ports { RESET }];
+## BTNC: Inicio y pausa del temporizador
+set_property -dict { PACKAGE_PIN N17   IOSTANDARD LVCMOS33 } [get_ports { START_PAUSE }];
+## BTNU: Reset del tiempo
+set_property -dict { PACKAGE_PIN M18   IOSTANDARD LVCMOS33 } [get_ports { RESET_TIEMPO }];
+## BTNR: Incremento de evento
+set_property -dict { PACKAGE_PIN M17   IOSTANDARD LVCMOS33 } [get_ports { EVENTO }];
+## BTNL: Reset de eventos
+set_property -dict { PACKAGE_PIN P17   IOSTANDARD LVCMOS33 } [get_ports { RESET_EVENTO }];
+
+## 3. LEDs indicadores
+## LED0: Temporizador activo (RUNNING)
+set_property -dict { PACKAGE_PIN H17   IOSTANDARD LVCMOS33 } [get_ports { RUNNING }];
+## LED1: Alarma de tiempo agotado (ALARMA)
+set_property -dict { PACKAGE_PIN K15   IOSTANDARD LVCMOS33 } [get_ports { ALARMA }];
+## LED2: Indicador de detección de evento (LED_EVENTO)
+set_property -dict { PACKAGE_PIN J13   IOSTANDARD LVCMOS33 } [get_ports { LED_EVENTO }];
+
+## 4. Displays de Siete Segmentos - Segmentos (Activos en bajo: CA..CG -> SEG[0]..SEG[6])
+set_property -dict { PACKAGE_PIN T10   IOSTANDARD LVCMOS33 } [get_ports { SEG[0] }]; # CA
+set_property -dict { PACKAGE_PIN R10   IOSTANDARD LVCMOS33 } [get_ports { SEG[1] }]; # CB
+set_property -dict { PACKAGE_PIN K16   IOSTANDARD LVCMOS33 } [get_ports { SEG[2] }]; # CC
+set_property -dict { PACKAGE_PIN K13   IOSTANDARD LVCMOS33 } [get_ports { SEG[3] }]; # CD
+set_property -dict { PACKAGE_PIN P15   IOSTANDARD LVCMOS33 } [get_ports { SEG[4] }]; # CE
+set_property -dict { PACKAGE_PIN T11   IOSTANDARD LVCMOS33 } [get_ports { SEG[5] }]; # CF
+set_property -dict { PACKAGE_PIN L18   IOSTANDARD LVCMOS33 } [get_ports { SEG[6] }]; # CG
+
+## 5. Displays de Siete Segmentos - Ánodos (Activos en bajo: AN[0]..AN[7])
+## AN[0] y AN[1]: Eventos (EE) | AN[2] y AN[3]: Tiempo (TT) | AN[4..7]: Apagados
+set_property -dict { PACKAGE_PIN J17   IOSTANDARD LVCMOS33 } [get_ports { AN[0] }];
+set_property -dict { PACKAGE_PIN J18   IOSTANDARD LVCMOS33 } [get_ports { AN[1] }];
+set_property -dict { PACKAGE_PIN T9    IOSTANDARD LVCMOS33 } [get_ports { AN[2] }];
+set_property -dict { PACKAGE_PIN J14   IOSTANDARD LVCMOS33 } [get_ports { AN[3] }];
+set_property -dict { PACKAGE_PIN P14   IOSTANDARD LVCMOS33 } [get_ports { AN[4] }];
+set_property -dict { PACKAGE_PIN T14   IOSTANDARD LVCMOS33 } [get_ports { AN[5] }];
+set_property -dict { PACKAGE_PIN K2    IOSTANDARD LVCMOS33 } [get_ports { AN[6] }];
+set_property -dict { PACKAGE_PIN U13   IOSTANDARD LVCMOS33 } [get_ports { AN[7] }];
+
+## Configuración adicional de voltaje para banco 0
+set_property CFGBVS VCCO [current_design];
+set_property CONFIG_VOLTAGE 3.3 [current_design];
+\end{lstlisting}
+
+\end{document}

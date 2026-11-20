@@ -9,10 +9,12 @@
 --              - contador_eventos
 --              - mux_display
 --              - bcd7seg
+--              - alarma_intermitente (actividad adicional: LED de alarma parpadeante)
 ----------------------------------------------------------------------------------
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+
 
 entity lab04_top is
     Generic (
@@ -20,6 +22,7 @@ entity lab04_top is
         -- En el testbench se sobreescriben con valores reducidos para simulación rápida
         MAX_COUNT_1S   : positive := 100_000_000;
         MAX_COUNT_DISP : positive := 100_000;
+        MAX_COUNT_BLINK : positive := 25_000_000; -- 0,25 s por fase -> parpadeo a 2 Hz
         INIT_DEC       : integer range 0 to 9 := 2;
         INIT_UNI       : integer range 0 to 9 := 5
     );
@@ -38,7 +41,9 @@ entity lab04_top is
     );
 end lab04_top;
 
+
 architecture Structural of lab04_top is
+
 
     -- Declaración de componentes
     component generador_ticks is
@@ -54,6 +59,7 @@ architecture Structural of lab04_top is
         );
     end component;
 
+
     component detector_flanco is
         Port (
             CLK     : in  STD_LOGIC;
@@ -62,6 +68,7 @@ architecture Structural of lab04_top is
             PULSO   : out STD_LOGIC
         );
     end component;
+
 
     component temporizador_bcd is
         Generic (
@@ -81,6 +88,7 @@ architecture Structural of lab04_top is
         );
     end component;
 
+
     component contador_eventos is
         Port (
             CLK          : in  STD_LOGIC;
@@ -91,6 +99,7 @@ architecture Structural of lab04_top is
             UNI_EVENTO   : out STD_LOGIC_VECTOR(3 downto 0)
         );
     end component;
+
 
     component mux_display is
         Port (
@@ -106,6 +115,7 @@ architecture Structural of lab04_top is
         );
     end component;
 
+
     component bcd7seg is
         Port (
             BCD : in  STD_LOGIC_VECTOR(3 downto 0);
@@ -113,9 +123,24 @@ architecture Structural of lab04_top is
         );
     end component;
 
+
+    component alarma_intermitente is
+        Generic (
+            MAX_COUNT_BLINK : positive := 25_000_000
+        );
+        Port (
+            CLK        : in  STD_LOGIC;
+            RESET      : in  STD_LOGIC;
+            ALARMA_IN  : in  STD_LOGIC;
+            ALARMA_OUT : out STD_LOGIC
+        );
+    end component;
+
+
     -- Señales internas de habilitación (ticks)
     signal tick_1s            : STD_LOGIC;
     signal tick_display       : STD_LOGIC;
+
 
     -- Pulsos de un ciclo provenientes de los detectores de flanco
     signal pulso_start_pause  : STD_LOGIC;
@@ -123,8 +148,10 @@ architecture Structural of lab04_top is
     signal pulso_evento       : STD_LOGIC;
     signal pulso_reset_evento : STD_LOGIC;
 
+
     -- Pulso que incrementa el contador: BTNR (EVENTO) o BTNC (START_PAUSE)
     signal pulso_contar       : STD_LOGIC;
+
 
     -- Dígitos BCD del temporizador y del contador de eventos
     signal dec_tiempo         : STD_LOGIC_VECTOR(3 downto 0);
@@ -132,10 +159,17 @@ architecture Structural of lab04_top is
     signal dec_evento         : STD_LOGIC_VECTOR(3 downto 0);
     signal uni_evento         : STD_LOGIC_VECTOR(3 downto 0);
 
+
+    -- Alarma fija generada por el temporizador (antes de hacerla intermitente)
+    signal alarma_int         : STD_LOGIC;
+
+
     -- Dígito BCD seleccionado por el multiplexor hacia el decodificador 7 segmentos
     signal bcd_actual         : STD_LOGIC_VECTOR(3 downto 0);
 
+
 begin
+
 
     -- 1. Generador de ticks (1 segundo y refresco de displays)
     u_generador_ticks : generador_ticks
@@ -150,6 +184,7 @@ begin
             TICK_DISPLAY => tick_display
         );
 
+
     -- 2. Detectores de flanco para pulsadores de control y eventos
     u_det_start_pause : detector_flanco
         port map (
@@ -159,6 +194,7 @@ begin
             PULSO   => pulso_start_pause
         );
 
+
     u_det_reset_tiempo : detector_flanco
         port map (
             CLK     => CLK,
@@ -166,6 +202,7 @@ begin
             ENTRADA => RESET_TIEMPO,
             PULSO   => pulso_reset_tiempo
         );
+
 
     u_det_evento : detector_flanco
         port map (
@@ -175,6 +212,7 @@ begin
             PULSO   => pulso_evento
         );
 
+
     u_det_reset_evento : detector_flanco
         port map (
             CLK     => CLK,
@@ -182,6 +220,7 @@ begin
             ENTRADA => RESET_EVENTO,
             PULSO   => pulso_reset_evento
         );
+
 
     -- 3. Temporizador regresivo BCD (TT)
     u_temporizador_bcd : temporizador_bcd
@@ -198,8 +237,9 @@ begin
             DEC_TIEMPO   => dec_tiempo,
             UNI_TIEMPO   => uni_tiempo,
             RUNNING      => RUNNING,
-            ALARMA       => ALARMA
+            ALARMA       => alarma_int
         );
+
 
     -- 4. Contador de eventos BCD (EE)
     u_contador_eventos : contador_eventos
@@ -211,6 +251,7 @@ begin
             DEC_EVENTO   => dec_evento,
             UNI_EVENTO   => uni_evento
         );
+
 
     -- 5. Multiplexor de 4 displays (Displays 3-2: Tiempo, Displays 1-0: Eventos)
     u_mux_display : mux_display
@@ -226,6 +267,7 @@ begin
             AN           => AN
         );
 
+
     -- 6. Decodificador BCD a 7 segmentos (activo en bajo)
     u_bcd7seg : bcd7seg
         port map (
@@ -233,10 +275,26 @@ begin
             SEG => SEG
         );
 
+
+    -- 7. Alarma intermitente (actividad adicional): LED1 parpadea mientras TT = 00
+    u_alarma_intermitente : alarma_intermitente
+        generic map (
+            MAX_COUNT_BLINK => MAX_COUNT_BLINK
+        )
+        port map (
+            CLK        => CLK,
+            RESET      => RESET,
+            ALARMA_IN  => alarma_int,
+            ALARMA_OUT => ALARMA
+        );
+
+
     -- Cada pulsación de EVENTO o de START_PAUSE cuenta como un evento
     pulso_contar <= pulso_evento or pulso_start_pause;
 
+
     -- Salida indicadora de detección de evento
     LED_EVENTO <= pulso_contar;
+
 
 end Structural;

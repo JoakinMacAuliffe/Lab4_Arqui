@@ -1,0 +1,217 @@
+\documentclass[letterpaper,12pt]{article}
+\usepackage[paperheight=27.94cm,paperwidth=21.59cm,bindingoffset=0in,left=3cm,right=2.0cm,top=3.5cm,bottom=2.5cm,headheight=15pt,headsep=1.0\baselineskip]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{cite}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Configuración del formato para el código VHDL
+\lstset{
+    language=VHDL,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=10pt,
+    backgroundcolor=\color{black!5},
+    frame=single,
+    rulecolor=\color{black!30},
+    breaklines=true,
+    breakatwhitespace=false,
+    showstringspaces=false,
+    captionpos=b,
+    inputencoding=utf8,
+    extendedchars=true,
+    literate=
+        {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+        {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1
+        {Ú}{{\'U}}1 {Ñ}{{\~N}}1 {¡}{{\textexclamdown}}1 {¿}{{\textquestiondown}}1
+}
+
+\renewcommand{\tablename}{Tabla}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Laboratorio 3: Máquina de estados finitos para control de acceso digital}
+
+\begin{document}
+
+% ==============================
+% 1. CARÁTULA
+% ==============================
+\begin{titlepage}
+    \centering
+    \includegraphics[width=0.55\textwidth]{Logo_Universidad_Diego_Portales.png}\\[1.2 cm]
+    
+    \textsc{\large Facultad de Ingeniería y Ciencias}\\[0.2 cm]
+    \textsc{\large Escuela de Informática y Telecomunicaciones}\\[1.5 cm]
+    
+    \textsc{\Large Arquitectura y Organización de Computadores}\\[0.5 cm]
+    
+    \rule{\linewidth}{0.5 mm} \\[0.4 cm]
+    {\huge \bfseries Laboratorio 4:\\[0.3cm] \Large Temporizador regresivo y contador de eventos en FPGA}\\
+    \rule{\linewidth}{0.5 mm} \\[2.0 cm]
+    
+    \large \emph{Integrantes:}\\[0.3 cm]
+    {\Large Benjamín Oyarzún}\\[0.2cm]
+    {\Large Lucas Herrada}\\[0.2cm]
+    {\Large Joakin Mac-Auliffe}
+
+    \vfill
+    {\large Diciembre de 2026}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ==============================
+% 2. INTRODUCCIÓN
+% ==============================
+\section{Introducción}
+.
+
+% ==============================
+% 3. OBJETIVOS
+% ==============================
+\section{Objetivos}
+
+
+% ==============================
+% 4. FUNDAMENTOS TEÓRICOS
+% ==============================
+\section{Fundamentos teóricos}
+
+
+% ==============================
+% 5. DESCRIPCIÓN FUNCIONAL
+% ==============================
+\section{Descripción funcional}
+
+% ==============================
+% 6. DIAGRAMA DE BLOQUES
+% ==============================
+\section{Diagrama de bloques}
+
+
+% ==============================
+% 7. DIAGRAMA DE ESTADOS
+% ==============================
+\section{Diagrama de estados}
+
+% ==============================
+% 8. TABLA DE TRANSICIÓN
+% ==============================
+\section{Tabla de transición}
+
+\section{Código VHDL}
+
+% ==============================
+% 10. TESTBENCH
+% ==============================
+\section{Testbench}
+
+
+% ==============================
+% 11. SIMULACIÓN EN VIVADO
+% ==============================
+\section{Simulación en Vivado}
+
+
+
+% ==============================
+% 12. ARCHIVO DE RESTRICCIONES
+% ==============================
+\section{Archivo de restricciones}
+
+
+\section{Resultados obtenidos}
+
+% ==============================
+% 13. ANÁLISIS DE ERRORES
+% ==============================
+\section{Análisis de errores}
+
+% ==============================
+% 14. RESPUESTAS A PREGUNTAS
+% ==============================
+\section{Respuestas a preguntas}
+
+% ==============================
+% 15. CONCLUSIONES
+% ==============================
+\section{Conclusiones}
+
+\newpage
+% ==============================
+% REFERENCIAS
+% ==============================
+\addcontentsline{toc}{section}{Referencias}
+\begin{thebibliography}{9}
+
+\bibitem{nexys4ddr}
+Digilent Inc., \emph{Nexys 4 DDR FPGA Board Reference Manual}, DOC\#: 502-292. [En línea]. Disponible en: \url{https://digilent.com/reference/programmable-logic/nexys-4-ddr/reference-manual}
+
+\bibitem{artix7}
+Xilinx, Inc., \emph{7 Series FPGAs Data Sheet: Overview}, DS180.
+
+\bibitem{ieee1076}
+IEEE, \emph{IEEE Standard VHDL Language Reference Manual}, IEEE Std 1076-2008, 2009.
+
+\bibitem{ieee1164}
+IEEE, \emph{IEEE Standard Multivalue Logic System for VHDL Model Interoperability (Std\_logic\_1164)}, IEEE Std 1164-1993, 1993.
+
+\bibitem{ieee1076_3}
+IEEE, \emph{IEEE Standard VHDL Synthesis Packages}, IEEE Std 1076.3-1997, 1997.
+
+\bibitem{harris}
+D. M. Harris y S. L. Harris, \emph{Digital Design and Computer Architecture}, 2.ª ed. Morgan Kaufmann, 2012.
+
+\bibitem{pedroni}
+V. A. Pedroni, \emph{Circuit Design and Simulation with VHDL}, 2.ª ed. MIT Press, 2010.
+
+\end{thebibliography}
+
+\newpage
+% ==============================
+% 7. ANEXOS
+% ==============================
+\section{Anexos}
+
+\subsection{Repositorio del proyecto}
+
+\begin{itemize}
+    \item \url{https://github.com/JoakinMacAuliffe/Lab4_Arqui}
+\end{itemize}
+
+\subsection{Código fuente VHDL}
+
+\subsubsection{\texttt{detector\_flanco.vhd} (Módulo sincronizador y detector de flancos)}
+
+\subsubsection{\texttt{lab03\_top.vhd} (El módulo principal que integra el diseño)}
+\begin{lstlisting}[language=VHDL, caption={lab03\_top.vhd}]
+
+\end{lstlisting}
+
+\subsection{Testbench (Banco de pruebas)}
+
+\subsection{Archivo XDC (Restricciones)}
+
+\subsubsection{\texttt{lab03.xdc} (La asignación física de pines para la FPGA)}
+\begin{lstlisting}[language=tcl, caption={lab03.xdc}]
+
+\end{lstlisting}
+
+\end{document}

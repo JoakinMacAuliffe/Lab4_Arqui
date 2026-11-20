@@ -11,7 +11,7 @@
 --              6. Reinicio independiente de eventos (RESET_EVENTO -> 00)
 --              7. Transición BCD de 10 a 09 en el temporizador
 --              8. Transición de 01 a 00 y detención automática
---              9. Activación de ALARMA al llegar a 00
+--              9. Activación de ALARMA al llegar a 00 (alarma intermitente: parpadea)
 --              10. Saturación del contador de eventos en 99
 --              11. Reinicio independiente de tiempo (RESET_TIEMPO -> 25)
 ----------------------------------------------------------------------------------
@@ -19,17 +19,21 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
+
 entity tb_lab04 is
 -- Entidad de testbench vacía
 end tb_lab04;
 
+
 architecture Behavioral of tb_lab04 is
+
 
     -- Declaración del componente bajo prueba (DUT)
     component lab04_top is
         Generic (
             MAX_COUNT_1S   : positive := 100_000_000;
             MAX_COUNT_DISP : positive := 100_000;
+            MAX_COUNT_BLINK : positive := 25_000_000;
             INIT_DEC       : integer range 0 to 9 := 2;
             INIT_UNI       : integer range 0 to 9 := 5
         );
@@ -48,12 +52,15 @@ architecture Behavioral of tb_lab04 is
         );
     end component;
 
+
     -- Constantes de simulación (divisores reducidos para simular en microsegundos)
     constant CLK_PERIOD     : time     := 10 ns; -- Reloj de 100 MHz
     constant SIM_COUNT_1S   : positive := 20;    -- 20 ciclos por cada "segundo" simulado
     constant SIM_COUNT_DISP : positive := 2;     -- 2 ciclos por cambio de display (8 ciclos barrido completo)
+    constant SIM_COUNT_BLINK : positive := 5;    -- 5 ciclos por fase del parpadeo de ALARMA
     constant INIT_DEC_VAL   : integer  := 2;
     constant INIT_UNI_VAL   : integer  := 5;
+
 
     -- Señales conectadas al DUT (Device Under Test)
     signal CLK          : STD_LOGIC := '0';
@@ -68,6 +75,7 @@ architecture Behavioral of tb_lab04 is
     signal RUNNING      : STD_LOGIC;
     signal LED_EVENTO   : STD_LOGIC;
 
+
     -- Señales auxiliares en el testbench para reconstruir los 4 dígitos mostrados
     -- a partir de la multiplexación de AN y SEG (facilita visualización y asserts)
     signal obs_dec_tiempo : integer range 0 to 15 := 0;
@@ -75,8 +83,15 @@ architecture Behavioral of tb_lab04 is
     signal obs_dec_evento : integer range 0 to 15 := 0;
     signal obs_uni_evento : integer range 0 to 15 := 0;
 
+
+    -- Contador de encendidos (flancos de subida) de ALARMA, para verificar el parpadeo
+    signal alarma_prev    : STD_LOGIC := '0';
+    signal alarma_flancos : natural   := 0;
+
+
     -- Bandera para detener el generador de reloj al finalizar la simulación
     signal sim_finished   : boolean := false;
+
 
     -- Función auxiliar inversa para decodificar SEG (activo en bajo) a entero (0..9)
     function seg7_to_int(seg_val : std_logic_vector(6 downto 0)) return integer is
@@ -96,13 +111,16 @@ architecture Behavioral of tb_lab04 is
         end case;
     end function;
 
+
 begin
+
 
     -- Instanciación del módulo superior (DUT)
     uut : lab04_top
         generic map (
             MAX_COUNT_1S   => SIM_COUNT_1S,
             MAX_COUNT_DISP => SIM_COUNT_DISP,
+            MAX_COUNT_BLINK => SIM_COUNT_BLINK,
             INIT_DEC       => INIT_DEC_VAL,
             INIT_UNI       => INIT_UNI_VAL
         )
@@ -120,6 +138,7 @@ begin
             LED_EVENTO   => LED_EVENTO
         );
 
+
     -- Generación de reloj de 100 MHz
     proc_clk : process
     begin
@@ -132,6 +151,7 @@ begin
         wait;
     end process proc_clk;
 
+
     -- Monitor de displays: captura cada dígito según el ánodo activo AN(3 downto 0)
     -- y verifica que los ánodos AN(7 downto 4) permanezcan siempre apagados ("1111")
     proc_monitor_display : process(CLK)
@@ -143,6 +163,7 @@ begin
                     severity error;
             end if;
 
+
             case AN(3 downto 0) is
                 when "1110" => obs_uni_evento <= seg7_to_int(SEG); -- Display 0
                 when "1101" => obs_dec_evento <= seg7_to_int(SEG); -- Display 1
@@ -153,8 +174,26 @@ begin
         end if;
     end process proc_monitor_display;
 
+
+    -- Monitor de la alarma intermitente: cuenta cada vez que ALARMA pasa de '0' a '1'
+    proc_monitor_alarma : process(CLK)
+    begin
+        if rising_edge(CLK) then
+            alarma_prev <= ALARMA;
+            if ALARMA = '1' and alarma_prev = '0' then
+                alarma_flancos <= alarma_flancos + 1;
+            end if;
+        end if;
+    end process proc_monitor_alarma;
+
+
     -- Proceso principal de estímulos y verificación con ASSERT
     proc_estimulos : process
+
+
+        -- Copia del número de encendidos de ALARMA (para comprobar que deja de parpadear)
+        variable flancos_guardados : natural := 0;
+
 
         -- Procedimiento auxiliar para avanzar N ciclos de reloj
         procedure wait_cycles(n : positive) is
@@ -163,6 +202,7 @@ begin
                 wait until rising_edge(CLK);
             end loop;
         end procedure;
+
 
         -- Procedimiento para simular la pulsación de un botón (duración total = 20 ciclos)
         -- Mantiene la señal en '1' durante 4 ciclos (verifica que detector_flanco
@@ -175,6 +215,7 @@ begin
             wait_cycles(SIM_COUNT_1S - 4);
         end procedure;
 
+
     begin
         --------------------------------------------------------------------------
         -- CASO 1: Reset general
@@ -185,6 +226,7 @@ begin
         -- Esperamos 10 ciclos (mitad del periodo de TICK_1S) para que mux_display
         -- escanee los 4 dígitos (8 ciclos) antes del primer TICK_1S (ciclo 20)
         wait_cycles(10);
+
 
         assert (RUNNING = '0' and ALARMA = '0')
             report "Fallo Caso 1: RUNNING y ALARMA deben ser '0' tras el reset."
@@ -197,6 +239,7 @@ begin
             severity error;
         report "Caso 1 OK: Reset general verificado (TT=25, EE=00)." severity note;
 
+
         --------------------------------------------------------------------------
         -- CASO 2: Inicio del temporizador y verificación de decrementos
         --------------------------------------------------------------------------
@@ -205,9 +248,11 @@ begin
         START_PAUSE <= '0';
         wait_cycles(2); -- En este punto RUNNING ya conmutó a '1' antes del ciclo 20
 
+
         assert RUNNING = '1'
             report "Fallo Caso 2: RUNNING debe activarse ('1') al pulsar START_PAUSE."
             severity error;
+
 
         -- Completamos los 14 ciclos restantes para llegar al ciclo 30 (tras 1er TICK_1S)
         wait_cycles(14);
@@ -215,12 +260,14 @@ begin
             report "Fallo Caso 2: El temporizador debio decrementar de 25 a 24."
             severity error;
 
+
         -- Esperamos 1 segundo adicional (20 ciclos) -> debe bajar a 23
         wait_cycles(SIM_COUNT_1S);
         assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 3)
             report "Fallo Caso 2: El temporizador debio decrementar de 24 a 23."
             severity error;
         report "Caso 2 OK: Inicio y decremento del temporizador verificados (25 -> 24 -> 23)." severity note;
+
 
         --------------------------------------------------------------------------
         -- CASO 3: Pausa del temporizador
@@ -230,12 +277,14 @@ begin
             report "Fallo Caso 3: RUNNING debe ser '0' en estado de pausa."
             severity error;
 
+
         -- Esperamos 3 segundos simulados en pausa; el tiempo debe mantenerse en 23
         wait_cycles(3 * SIM_COUNT_1S);
         assert (obs_dec_tiempo = 2 and obs_uni_tiempo = 3 and RUNNING = '0')
             report "Fallo Caso 3: El tiempo no debe cambiar mientras esta en pausa."
             severity error;
         report "Caso 3 OK: Pausa verificada (se mantiene en 23)." severity note;
+
 
         --------------------------------------------------------------------------
         -- CASO 5: Incremento de eventos (evitando conteos múltiples por pulsación)
@@ -245,16 +294,19 @@ begin
         press_button(EVENTO);
         press_button(EVENTO);
 
+
         -- 2 pulsaciones de START_PAUSE (inicio y pausa) + 3 de EVENTO = 05
         assert (obs_dec_evento = 0 and obs_uni_evento = 5)
             report "Fallo Caso 5: El contador de eventos debe mostrar 05 (2 START_PAUSE + 3 EVENTO)."
             severity error;
         report "Caso 5 OK: Incremento de eventos verificado (EE=05)." severity note;
 
+
         --------------------------------------------------------------------------
         -- CASO 6: Reinicio independiente de eventos
         --------------------------------------------------------------------------
         press_button(RESET_EVENTO);
+
 
         assert (obs_dec_evento = 0 and obs_uni_evento = 0)
             report "Fallo Caso 6: RESET_EVENTO debe reiniciar el contador de eventos a 00."
@@ -264,6 +316,7 @@ begin
             severity error;
         report "Caso 6 OK: Reinicio independiente de eventos verificado (EE=00, TT=23)." severity note;
 
+
         -- Incrementamos 7 eventos para dejar EE=07 durante el conteo regresivo
         for i in 1 to 7 loop
             press_button(EVENTO);
@@ -271,6 +324,7 @@ begin
         assert (obs_dec_evento = 0 and obs_uni_evento = 7)
             report "Fallo al cargar 07 eventos."
             severity error;
+
 
         --------------------------------------------------------------------------
         -- CASO 4: Reanudación del temporizador
@@ -282,6 +336,7 @@ begin
             severity error;
         report "Caso 4 OK: Reanudacion verificada (TT=22, RUNNING=1)." severity note;
 
+
         --------------------------------------------------------------------------
         -- CASO 7: Transición BCD de 10 a 09
         --------------------------------------------------------------------------
@@ -291,12 +346,14 @@ begin
             report "Fallo previo a Caso 7: El temporizador debio llegar a 10."
             severity error;
 
+
         -- Avanzamos 1 segundo más: transición crítica 10 -> 09
         wait_cycles(SIM_COUNT_1S);
         assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 9)
             report "Fallo Caso 7: Transicion BCD incorrecta de 10 a 09."
             severity error;
         report "Caso 7 OK: Transicion BCD 10 -> 09 verificada correctamente." severity note;
+
 
         --------------------------------------------------------------------------
         -- CASOS 8 y 9: Transición 01 a 00, detención en 00 y activación de ALARMA
@@ -307,6 +364,7 @@ begin
             report "Fallo previo a Caso 8: El temporizador debio estar en 01 con ALARMA='0'."
             severity error;
 
+
         -- Avanzamos 1 segundo más: transición 01 -> 00
         wait_cycles(SIM_COUNT_1S);
         assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 0)
@@ -315,16 +373,22 @@ begin
         assert RUNNING = '0'
             report "Fallo Caso 8: El temporizador debe detenerse (RUNNING='0') al llegar a 00."
             severity error;
-        assert ALARMA = '1'
-            report "Fallo Caso 9: La senal ALARMA debe activarse ('1') al llegar el tiempo a 00."
+        assert alarma_flancos >= 1
+            report "Fallo Caso 9: La senal ALARMA debe activarse al llegar el tiempo a 00."
             severity error;
+
 
         -- Esperamos 3 segundos adicionales para comprobar que no continúa disminuyendo
         wait_cycles(3 * SIM_COUNT_1S);
-        assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 0 and RUNNING = '0' and ALARMA = '1')
-            report "Fallo Caso 8/9: El temporizador debe permanecer detenido en 00 con ALARMA='1'."
+        assert (obs_dec_tiempo = 0 and obs_uni_tiempo = 0 and RUNNING = '0')
+            report "Fallo Caso 8/9: El temporizador debe permanecer detenido en 00."
             severity error;
-        report "Casos 8 y 9 OK: Llegada a 00, detencion automatica y ALARMA verificadas." severity note;
+        -- En 60 ciclos con fases de 5 ciclos, ALARMA debe haberse encendido varias veces
+        assert alarma_flancos >= 3
+            report "Fallo Caso 9: ALARMA debe parpadear (encenderse y apagarse) mientras TT = 00."
+            severity error;
+        report "Casos 8 y 9 OK: Llegada a 00, detencion automatica y ALARMA intermitente verificadas." severity note;
+
 
         --------------------------------------------------------------------------
         -- CASO 11: Reinicio independiente de tiempo (RESET_TIEMPO)
@@ -337,7 +401,14 @@ begin
         assert (obs_dec_evento = 0 and obs_uni_evento = 8)
             report "Fallo Caso 11: RESET_TIEMPO no debe afectar el contador de eventos (08)."
             severity error;
+        -- Tras RESET_TIEMPO la alarma debe quedar apagada y dejar de parpadear
+        flancos_guardados := alarma_flancos;
+        wait_cycles(2 * SIM_COUNT_1S);
+        assert (ALARMA = '0' and alarma_flancos = flancos_guardados)
+            report "Fallo Caso 11: ALARMA debe dejar de parpadear despues de RESET_TIEMPO."
+            severity error;
         report "Caso 11 OK: Reinicio de tiempo verificado (TT=25, ALARMA=0, EE=08)." severity note;
+
 
         --------------------------------------------------------------------------
         -- CASO 10: Saturación del contador de eventos en 99
@@ -347,10 +418,12 @@ begin
             press_button(EVENTO);
         end loop;
 
+
         assert (obs_dec_evento = 9 and obs_uni_evento = 9)
             report "Fallo Caso 10: El contador de eventos debe saturarse y mantener 99."
             severity error;
         report "Caso 10 OK: Saturacion del contador de eventos en 99 verificada." severity note;
+
 
         --------------------------------------------------------------------------
         -- Fin de la simulación
@@ -359,5 +432,6 @@ begin
         sim_finished <= true;
         wait;
     end process proc_estimulos;
+
 
 end Behavioral;
