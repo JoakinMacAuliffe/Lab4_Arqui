@@ -65,7 +65,7 @@
 % ==============================
 \begin{titlepage}
     \centering
-    \imagenopcional{width=0.55\textwidth}{Logo_Universidad_Diego_Portales.png}{Logo institucional.}\\[1.2 cm]
+    \imagenopcional{width=0.55\textwidth}{img/Logo_Universidad_Diego_Portales.png}{Logo institucional.}\\[1.2 cm]
 
     \textsc{\large Facultad de Ingeniería y Ciencias}\\[0.2 cm]
     \textsc{\large Escuela de Informática y Telecomunicaciones}\\[1.5 cm]
@@ -82,7 +82,7 @@
     {\Large Joakin Mac-Auliffe}
 
     \vfill
-    {\large Diciembre de 2026}
+    {\large Noviembre de 2026}
 \end{titlepage}
 
 \newpage
@@ -217,7 +217,7 @@ La Figura~\ref{fig:diagrama_bloques} corresponde al esquema generado por Vivado 
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{4.png}{Diagrama de bloques de lab04\_top (esquema elaborado).}
+    \imagenopcional{width=1\linewidth}{img/4.png}{Diagrama de bloques de lab04\_top (esquema elaborado).}
     \caption{Diagrama de bloques del sistema: \texttt{lab04\_top} con 11 celdas (esquema elaborado en Vivado).}
     \label{fig:diagrama_bloques}
 \end{figure}
@@ -365,7 +365,7 @@ La Figura~\ref{fig:sim_vivado} muestra la simulación completa en el entorno de 
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth,trim=0 39bp 0 0,clip}{2.png}{Vista completa de la simulación en Vivado (0 a 28 µs).}
+    \imagenopcional{width=1\linewidth,trim=0 39bp 0 0,clip}{img/2.png}{Vista completa de la simulación en Vivado (0 a 28 µs).}
     \caption{Simulación en Vivado: ejecución completa de \texttt{tb\_lab04} (28\,345 ns).}
     \label{fig:sim_vivado}
 \end{figure}
@@ -375,7 +375,7 @@ La Figura~\ref{fig:sim_general} muestra los primeros 14~µs, que cubren los caso
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{12.png}{Formas de onda 0--14 µs de tb\_lab04.}
+    \imagenopcional{width=1\linewidth}{img/12.png}{Formas de onda 0--14 µs de tb\_lab04.}
     \caption{Simulación: reset, inicio, pausa, reanudación, transición $10\rightarrow09$, llegada a cero, alarma y reinicio de tiempo.}
     \label{fig:sim_general}
 \end{figure}
@@ -384,7 +384,7 @@ La Figura~\ref{fig:sim_inicio} amplía los primeros 1000~ns. Tras el reset, la p
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth,trim=221bp 0 0 0,clip}{13.png}{Acercamiento 0--1000 ns: reset, inicio, decremento, pausa, eventos y multiplexación.}
+    \imagenopcional{width=1\linewidth,trim=221bp 0 0 0,clip}{img/13.png}{Acercamiento 0--1000 ns: reset, inicio, decremento, pausa, eventos y multiplexación.}
     \caption{Simulación: reset, inicio, decremento por \texttt{TICK\_1S}, pausa, conteo de eventos y multiplexación de displays.}
     \label{fig:sim_inicio}
 \end{figure}
@@ -397,14 +397,14 @@ La Figura~\ref{fig:sim_eventos} muestra el tramo en que se aplican las 95 pulsac
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{11.png}{Formas de onda 12--26 µs: incremento de eventos.}
+    \imagenopcional{width=1\linewidth}{img/11.png}{Formas de onda 12--26 µs: incremento de eventos.}
     \caption{Simulación: incremento del contador de eventos.}
     \label{fig:sim_eventos}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth,trim=634bp 345bp 13bp 134bp,clip}{9.png}{Final de la simulación (27,6--28,3 µs): saturación en 99 y multiplexación.}
+    \imagenopcional{width=1\linewidth,trim=634bp 345bp 13bp 134bp,clip}{img/9.png}{Final de la simulación (27,6--28,3 µs): saturación en 99 y multiplexación.}
     \caption{Simulación: saturación del contador en 99 y multiplexación de displays.}
     \label{fig:sim_fin}
 \end{figure}
@@ -414,7 +414,7 @@ La consola Tcl de Vivado (Figura~\ref{fig:consola}) registra los mensajes \textt
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth,trim=192bp 81bp 805bp 748bp,clip}{9.png}{Consola Tcl con los mensajes de los casos aprobados.}
+    \imagenopcional{width=1\linewidth,trim=192bp 81bp 805bp 748bp,clip}{img/9.png}{Consola Tcl con los mensajes de los casos aprobados.}
     \caption{Consola Tcl de Vivado: resultado de las verificaciones del testbench.}
     \label{fig:consola}
 \end{figure}
@@ -443,28 +443,28 @@ A nivel RTL (elaborado) se identifican los elementos esperados:
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{8.png}{Esquema RTL de generador\_ticks.}
+    \imagenopcional{width=1\linewidth}{img/8.png}{Esquema RTL de generador\_ticks.}
     \caption{Esquema RTL de \texttt{generador\_ticks}.}
     \label{fig:rtl_ticks}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{7.png}{Esquema RTL de temporizador\_bcd.}
+    \imagenopcional{width=1\linewidth}{img/7.png}{Esquema RTL de temporizador\_bcd.}
     \caption{Esquema RTL de \texttt{temporizador\_bcd} (54 celdas).}
     \label{fig:rtl_temp}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{14.png}{Esquema RTL de contador\_eventos.}
+    \imagenopcional{width=1\linewidth}{img/14.png}{Esquema RTL de contador\_eventos.}
     \caption{Esquema RTL de \texttt{contador\_eventos} (28 celdas).}
     \label{fig:rtl_cont}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{6.png}{Esquema RTL de mux\_display.}
+    \imagenopcional{width=1\linewidth}{img/6.png}{Esquema RTL de mux\_display.}
     \caption{Esquema RTL de \texttt{mux\_display}.}
     \label{fig:rtl_mux}
 \end{figure}
@@ -473,62 +473,67 @@ Tras la síntesis, Vivado optimiza y aplana la lógica sobre primitivas de la 7 
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{3.png}{Esquema sintetizado del módulo superior.}
+    \imagenopcional{width=1\linewidth}{img/3.png}{Esquema sintetizado del módulo superior.}
     \caption{Esquema del diseño sintetizado (\texttt{lab04\_top}).}
     \label{fig:synth_top}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \imagenopcional{width=1\linewidth}{15.png}{Esquema sintetizado de contador\_eventos.}
+    \imagenopcional{width=1\linewidth}{img/15.png}{Esquema sintetizado de contador\_eventos.}
     \caption{\texttt{contador\_eventos} tras la síntesis (FDRE y LUT).}
     \label{fig:synth_cont}
 \end{figure}
 
-\subsection{Verificación en hardware}
-La Tabla~\ref{tab:hw} resume los puntos que deben demostrarse en la placa. Las figuras documentan la demostración.
+\subsection{Reporte de síntesis e implementación}
+Se ejecutaron \emph{Run Synthesis}, \emph{Run Implementation} y \emph{Generate Bitstream} en Vivado 2023.1 para el dispositivo XC7A100TCSG324-1. La síntesis terminó con 0 errores, 0 advertencias críticas y 5 advertencias; la implementación y la generación del bitstream terminaron sin errores ni advertencias.
+
+Las 5 advertencias de síntesis no afectan el funcionamiento:
+\begin{itemize}
+    \item \texttt{Synth 8-7080}: informativa; no se cumplen los criterios para síntesis en paralelo, dado el tamaño reducido del diseño.
+    \item \texttt{Synth 8-3917} (cuatro veces): los puertos \texttt{AN[7]} a \texttt{AN[4]} están manejados por la constante `1', lo que es el comportamiento esperado, pues los displays 4 a 7 deben permanecer apagados.
+\end{itemize}
+
+La Tabla~\ref{tab:recursos} resume la utilización de recursos tras la implementación y la Tabla~\ref{tab:timing} los resultados de temporización y verificación de reglas de diseño.
 
 \begin{table}[H]
 \centering
-\caption{Lista de verificación en hardware.}
-\label{tab:hw}
+\caption{Utilización de recursos tras la implementación (XC7A100T).}
+\label{tab:recursos}
 \small
-\begin{tabularx}{\textwidth}{|X|c|}
+\begin{tabular}{|l|r|r|r|}
 \hline
-\textbf{Verificación} & \textbf{Cumple} \\ \hline
-Funcionamiento del reset (BTND)                          & \\ \hline
-Inicio y pausa con BTNC (LED0 refleja \texttt{RUNNING})   & \\ \hline
-Decremento cada segundo                                  & \\ \hline
-Transición correcta entre dígitos (por ejemplo, 10 a 09) & \\ \hline
-Incremento de eventos con BTNR                           & \\ \hline
-Reinicio independiente de tiempo (BTNU) y de eventos (BTNL) & \\ \hline
-Visualización estable de cuatro dígitos sin parpadeo     & \\ \hline
-Detención en cero                                        & \\ \hline
-Activación de alarma (LED1 intermitente)                 & \\ \hline
-Ausencia de conteos múltiples por pulsación              & \\ \hline
+\textbf{Recurso} & \textbf{Usado} & \textbf{Disponible} & \textbf{Uso (\%)} \\ \hline
+LUT (\emph{Slice LUTs})         & 65  & 63\,400  & 0,10 \\ \hline
+Registros (\emph{Slice Registers}) & 104 & 126\,800 & 0,08 \\ \hline
+E/S utilizadas (\emph{Bonded IOB}) & 24  & 210      & 11,43 \\ \hline
+\texttt{BUFGCTRL}               & 1   & 32       & 3,13 \\ \hline
+\emph{Block RAM}                & 0   & 135      & 0,00 \\ \hline
+DSP                             & 0   & 240      & 0,00 \\ \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Temporización, DRC y potencia tras la implementación (reloj de 100 MHz).}
+\label{tab:timing}
+\small
+\begin{tabularx}{\textwidth}{|X|r|}
+\hline
+\textbf{Parámetro} & \textbf{Valor} \\ \hline
+Holgura de \emph{setup} (WNS)                        & 4,878~ns (0 endpoints fallidos de 177) \\ \hline
+Holgura de \emph{hold} (WHS)                         & 0,220~ns (0 endpoints fallidos de 177) \\ \hline
+Ancho mínimo de pulso (WPWS)                         & 4,500~ns (0 endpoints fallidos de 105) \\ \hline
+Restricciones de temporización                       & Todas cumplidas \\ \hline
+Violaciones DRC                                      & 0 \\ \hline
+Potencia total estimada                              & 0,106~W (dinámica 0,009~W; estática 0,097~W) \\ \hline
 \end{tabularx}
 \end{table}
 
-\begin{figure}[H]
-    \centering
-    \imagenopcional{width=0.8\linewidth}{hw_inicio.jpg}{Fotografía: valor inicial 25 00 con LED0 apagado.}
-    \caption{Implementación física: estado inicial (\texttt{25 00}).}
-    \label{fig:hw_inicio}
-\end{figure}
+Con una holgura de \emph{setup} de casi 4,9~ns sobre un periodo de 10~ns, el diseño cumple con amplio margen la restricción de 100~MHz, lo que es coherente con que la lógica sea sencilla (contadores, comparadores y multiplexores) y con que se use un único dominio de reloj mediante habilitaciones.
 
-\begin{figure}[H]
-    \centering
-    \imagenopcional{width=0.8\linewidth}{hw_corriendo.jpg}{Fotografía: temporizador en cuenta regresiva con LED0 encendido y eventos incrementados.}
-    \caption{Implementación física: temporizador en ejecución y eventos registrados.}
-    \label{fig:hw_corriendo}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \imagenopcional{width=0.8\linewidth}{hw_alarma.jpg}{Fotografía: tiempo 00, LED0 apagado y LED1 parpadeando.}
-    \caption{Implementación física: tiempo agotado (\texttt{00}) con alarma activa.}
-    \label{fig:hw_alarma}
-\end{figure}
+\subsection{Verificación en hardware}
+El funcionamiento en la placa se documenta en el siguiente video de demostración: \url{https://drive.google.com/file/d/1nHihV9UcWKYV1jOAFT8KAInJGRiwbBy_/view?usp=sharing}
 
 % ==============================
 % 14. ANÁLISIS DE ERRORES

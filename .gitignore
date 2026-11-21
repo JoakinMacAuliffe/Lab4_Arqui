@@ -1,0 +1,22 @@
+# LaTeX: archivos auxiliares de compilación
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+
+# Vivado: archivos generados (se conservan .xpr, fuentes y .wcfg)
+LAB04_TEMPORIZADOR_EVENTOS/.Xil/
+LAB04_TEMPORIZADOR_EVENTOS/*.jou
+LAB04_TEMPORIZADOR_EVENTOS/*.log
+LAB04_TEMPORIZADOR_EVENTOS/*.str
+LAB04_TEMPORIZADOR_EVENTOS/*.backup.*
+LAB04_TEMPORIZADOR_EVENTOS/*.cache/
+LAB04_TEMPORIZADOR_EVENTOS/*.hw/
+LAB04_TEMPORIZADOR_EVENTOS/*.ip_user_files/
+LAB04_TEMPORIZADOR_EVENTOS/*.runs/
+LAB04_TEMPORIZADOR_EVENTOS/*.sim/

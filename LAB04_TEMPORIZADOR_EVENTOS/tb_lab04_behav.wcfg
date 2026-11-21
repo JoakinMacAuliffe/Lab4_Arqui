@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_lab04_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="tb_lab04" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="0.000000 us"></ZoomStartTime>
+      <ZoomEndTime time="28.350001 us"></ZoomEndTime>
+      <Cursor1Time time="28.350000 us"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="141"></NameColumnWidth>
+      <ValueColumnWidth column_width="58"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="28" />
+   <wvobject fp_name="/tb_lab04/CLK" type="logic">
+      <obj_property name="ElementShortName">CLK</obj_property>
+      <obj_property name="ObjectShortName">CLK</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/RESET" type="logic">
+      <obj_property name="ElementShortName">RESET</obj_property>
+      <obj_property name="ObjectShortName">RESET</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/START_PAUSE" type="logic">
+      <obj_property name="ElementShortName">START_PAUSE</obj_property>
+      <obj_property name="ObjectShortName">START_PAUSE</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/RESET_TIEMPO" type="logic">
+      <obj_property name="ElementShortName">RESET_TIEMPO</obj_property>
+      <obj_property name="ObjectShortName">RESET_TIEMPO</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/EVENTO" type="logic">
+      <obj_property name="ElementShortName">EVENTO</obj_property>
+      <obj_property name="ObjectShortName">EVENTO</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/RESET_EVENTO" type="logic">
+      <obj_property name="ElementShortName">RESET_EVENTO</obj_property>
+      <obj_property name="ObjectShortName">RESET_EVENTO</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/SEG" type="array">
+      <obj_property name="ElementShortName">SEG[6:0]</obj_property>
+      <obj_property name="ObjectShortName">SEG[6:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/AN" type="array">
+      <obj_property name="ElementShortName">AN[7:0]</obj_property>
+      <obj_property name="ObjectShortName">AN[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/ALARMA" type="logic">
+      <obj_property name="ElementShortName">ALARMA</obj_property>
+      <obj_property name="ObjectShortName">ALARMA</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/RUNNING" type="logic">
+      <obj_property name="ElementShortName">RUNNING</obj_property>
+      <obj_property name="ObjectShortName">RUNNING</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/LED_EVENTO" type="logic">
+      <obj_property name="ElementShortName">LED_EVENTO</obj_property>
+      <obj_property name="ObjectShortName">LED_EVENTO</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/obs_dec_tiempo" type="other">
+      <obj_property name="ElementShortName">obs_dec_tiempo</obj_property>
+      <obj_property name="ObjectShortName">obs_dec_tiempo</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/obs_uni_tiempo" type="other">
+      <obj_property name="ElementShortName">obs_uni_tiempo</obj_property>
+      <obj_property name="ObjectShortName">obs_uni_tiempo</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/obs_dec_evento" type="other">
+      <obj_property name="ElementShortName">obs_dec_evento</obj_property>
+      <obj_property name="ObjectShortName">obs_dec_evento</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/obs_uni_evento" type="other">
+      <obj_property name="ElementShortName">obs_uni_evento</obj_property>
+      <obj_property name="ObjectShortName">obs_uni_evento</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/sim_finished" type="other">
+      <obj_property name="ElementShortName">sim_finished</obj_property>
+      <obj_property name="ObjectShortName">sim_finished</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/CLK_PERIOD" type="other">
+      <obj_property name="ElementShortName">CLK_PERIOD</obj_property>
+      <obj_property name="ObjectShortName">CLK_PERIOD</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/SIM_COUNT_1S" type="other">
+      <obj_property name="ElementShortName">SIM_COUNT_1S</obj_property>
+      <obj_property name="ObjectShortName">SIM_COUNT_1S</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/SIM_COUNT_DISP" type="other">
+      <obj_property name="ElementShortName">SIM_COUNT_DISP</obj_property>
+      <obj_property name="ObjectShortName">SIM_COUNT_DISP</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/INIT_DEC_VAL" type="other">
+      <obj_property name="ElementShortName">INIT_DEC_VAL</obj_property>
+      <obj_property name="ObjectShortName">INIT_DEC_VAL</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/INIT_UNI_VAL" type="other">
+      <obj_property name="ElementShortName">INIT_UNI_VAL</obj_property>
+      <obj_property name="ObjectShortName">INIT_UNI_VAL</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/uut/tick_1s" type="logic">
+      <obj_property name="ElementShortName">tick_1s</obj_property>
+      <obj_property name="ObjectShortName">tick_1s</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/uut/tick_display" type="logic">
+      <obj_property name="ElementShortName">tick_display</obj_property>
+      <obj_property name="ObjectShortName">tick_display</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/uut/dec_tiempo" type="array">
+      <obj_property name="ElementShortName">dec_tiempo[3:0]</obj_property>
+      <obj_property name="ObjectShortName">dec_tiempo[3:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/uut/uni_tiempo" type="array">
+      <obj_property name="ElementShortName">uni_tiempo[3:0]</obj_property>
+      <obj_property name="ObjectShortName">uni_tiempo[3:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/uut/dec_evento" type="array">
+      <obj_property name="ElementShortName">dec_evento[3:0]</obj_property>
+      <obj_property name="ObjectShortName">dec_evento[3:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/uut/uni_evento" type="array">
+      <obj_property name="ElementShortName">uni_evento[3:0]</obj_property>
+      <obj_property name="ObjectShortName">uni_evento[3:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_lab04/uut/alarma_int" type="logic">
+      <obj_property name="ElementShortName">alarma_int</obj_property>
+      <obj_property name="ObjectShortName">alarma_int</obj_property>
+   </wvobject>
+</wave_config>
