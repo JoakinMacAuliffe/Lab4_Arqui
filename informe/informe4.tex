@@ -541,10 +541,7 @@ El funcionamiento en la placa se documenta en el siguiente video de demostració
 \section{Análisis de errores}
 Durante el desarrollo se identificaron y resolvieron los siguientes aspectos:
 \begin{itemize}
-    \item \textbf{Simulación inviable con divisores reales:} un ``segundo'' de 100\,000\,000 ciclos es imposible de simular en un banco de pruebas. Se resolvió declarando los divisores como genéricos y sobrescribiéndolos desde el testbench (20, 2 y 5 ciclos).
     \item \textbf{Conteos múltiples por pulsación:} usar el nivel del pulsador como habilitación incrementaría el contador en cada ciclo mientras el botón estuviera presionado. Se resolvió con \texttt{detector\_flanco}, y el testbench lo verifica manteniendo el botón 4 ciclos y comprobando que el contador avanza una sola unidad.
-    \item \textbf{Polaridad de displays:} los segmentos y ánodos de la Nexys 4 DDR son activos en bajo; la tabla de \texttt{bcd7seg} y los códigos de \texttt{mux\_display} se definieron invertidos respecto de la lógica positiva, y el monitor del testbench decodifica con los mismos patrones.
-    \item \textbf{Instante de lectura en el testbench:} los dígitos se reconstruyen a partir de la multiplexación, por lo que antes de cada \texttt{assert} se espera al menos un barrido completo (8 ciclos); por ello se agregaron esperas de 10 ciclos tras el reset, antes del primer \texttt{TICK\_1S}.
     \item \textbf{Efecto de \texttt{START\_PAUSE} sobre el contador de eventos:} se decidió que las pulsaciones de \texttt{BTNC} también incrementan el contador (\texttt{pulso\_contar}); los casos 5 y 11 del testbench se ajustaron a los valores 05 y 08 respectivamente. Debe tenerse presente que esta decisión se aparta de la descripción básica del contador (solo \texttt{EVENTO}).
     \item \textbf{Antirrebote no implementado:} \texttt{detector\_flanco} sincroniza y detecta flancos, pero no filtra el rebote mecánico: si el contacto produce varios flancos en pocos milisegundos, cada uno se interpretaría como una pulsación. Un filtro antirrebote (contador de estabilidad de unos 10--20~ms) queda como mejora.
 \end{itemize}
